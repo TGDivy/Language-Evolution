@@ -54,6 +54,7 @@ def run(config: Utils):
     env = reference.parallel_env()
 
     policies = {"agent_0": Agent(args), "agent_1": Agent(args)}
+    steps = 0
 
     for ep_i in tqdm(range(0, config.n_episodes)):
         observation = env.reset()
@@ -121,11 +122,15 @@ def run(config: Utils):
 
             env.render()
 
+            steps += 1
+
+            if step % args.total_memory == 0:
+                for agent in env.agents:
+                    policies[agent].learn()
+
         config.logger.add_scalar("rewards/avg_reward", total_reward / 25, (ep_i + 1))
 
-        for agent in env.agents:
-            policies[agent].learn()
-            # break
+        # break
 
 
 if __name__ == "__main__":
