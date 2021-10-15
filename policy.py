@@ -116,10 +116,9 @@ class PPOMemory:
         self.observations[self.counter] = observations[0]
 
         self.actions_move[self.counter] = move
-        self.probs_move = T.zeros(self.total_memory, probs_move)
+        self.probs_move = probs_move
         self.actions_communicate[self.counter] = communicate
-        self.actions_communicate = T.zeros(self.total_memory, 1)
-        self.probs_communicate = T.zeros(self.total_memory, probs_communicate)
+        self.probs_communicate = probs_communicate
 
         self.vals[self.counter] = vals
         self.rewards[self.counter] = reward
