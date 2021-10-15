@@ -1,4 +1,4 @@
-from pettingzoo.mpe import simple_reference_v2
+from pettingzoo.mpe import reference
 
 
 import argparse
@@ -9,6 +9,24 @@ from gym.spaces import Box, Discrete
 from torch.utils.tensorboard import SummaryWriter
 
 from policy import random_policy
+from policy import Agent
+
+from dotmap import DotMap
+
+parameters = {
+    # exerpiment details
+    "chkpt_dir": "tmp/ppo",
+    # PPO memory
+    "total_memory": 25,
+    "batch_size": 5,
+    # learning hyper parameters actor critic models
+    "n_epochs": 5,
+    "alpha": 1e-5,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "policy_clip": 0.1,
+    "entropy": 0.01,
+}
 
 
 class parameters:
@@ -31,13 +49,17 @@ class parameters:
 
 def run(config: parameters):
 
-    env = simple_reference_v2.parallel_env()
+    args = DotMap(parameters)
+    env = reference.parallel_env()
+
+    agent1 = Agent(args)
+    agent2 = Agent(args)
 
     for ep_i in range(0, config.n_episodes):
 
-        obs = env.reset()
+        observations = env.reset()
         env.render()
-
+        rewards, dones = 0, False
         for step in range(config.max_cycles):
             actions = {agent: random_policy() for agent in env.agents}
             observations, rewards, dones, infos = env.step(actions)
