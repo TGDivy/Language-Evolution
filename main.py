@@ -101,7 +101,7 @@ def run(config: Utils):
 
             # print(actions)
 
-            actions[env.agents[1]] = 0
+            # actions[env.agents[1]] = 0
 
             observation, rewards, dones, infos = env.step(actions)
 
@@ -113,20 +113,19 @@ def run(config: Utils):
                     to_remember[agent][3],
                     to_remember[agent][4],
                     to_remember[agent][5],
-                    rewards[agent],
+                    -rewards[agent],
                     dones[agent],
                 )
                 total_reward += rewards[agent]
-                break
+                # break
 
             env.render()
 
-        config.logger.add_scalar("rewards/avg_reward", total_reward / ep_i + 1)
+        config.logger.add_scalar("rewards/avg_reward", total_reward / 25, (ep_i + 1))
 
         for agent in env.agents:
             policies[agent].learn()
-            print("yipeeeee")
-            break
+            # break
 
 
 if __name__ == "__main__":

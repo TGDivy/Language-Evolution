@@ -14,13 +14,14 @@ class Scenario(BaseScenario):
         world.agents = [Agent() for i in range(2)]
         for i, agent in enumerate(world.agents):
             agent.name = f"agent_{i}"
-            agent.collide = False
+            agent.collide = True
         # add landmarks
         world.landmarks = [Landmark() for i in range(3)]
         for i, landmark in enumerate(world.landmarks):
             landmark.name = "landmark %d" % i
             landmark.collide = False
             landmark.movable = False
+            landmark.size = 0.12
         return world
 
     def reset_world(self, world, np_random):
