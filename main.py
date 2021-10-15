@@ -7,11 +7,12 @@ import os
 import numpy as np
 from gym.spaces import Box, Discrete
 from torch.utils.tensorboard import SummaryWriter
-
+import torch as T
 from policy import random_policy
 from policy import Agent
-
+from policy import actions_to_discrete
 from dotmap import DotMap
+from tqdm import tqdm
 
 parameters = {
     # exerpiment details
@@ -52,18 +53,67 @@ def run(config: parameters):
     args = DotMap(parameters)
     env = reference.parallel_env()
 
-    agent1 = Agent(args)
-    agent2 = Agent(args)
+    policies = {"agent_0": Agent(args), "agent_1": Agent(args)}
 
-    for ep_i in range(0, config.n_episodes):
-
-        observations = env.reset()
+    for ep_i in tqdm(range(0, config.n_episodes)):
+        observation = env.reset()
         env.render()
         rewards, dones = 0, False
+
         for step in range(config.max_cycles):
-            actions = {agent: random_policy() for agent in env.agents}
-            observations, rewards, dones, infos = env.step(actions)
+
+            actions = {}
+            to_remember = {}
+
+            for agent in env.agents:
+                obs = observation[agent]
+                obs_batch = np.concatenate(
+                    [
+                        obs["current_velocity"],
+                        obs["landmarks"],
+                        obs["goal"],
+                        obs["communication"],
+                    ]
+                )
+                obs_batch = T.tensor([obs_batch])
+
+                (
+                    move_probs,
+                    communicate_probs,
+                    move_action,
+                    communicate_action,
+                    value,
+                ) = policies[agent].choose_action(obs_batch)
+
+                to_remember[agent] = (
+                    obs_batch,
+                    move_action,
+                    move_probs,
+                    communicate_action,
+                    communicate_probs,
+                    value,
+                )
+
+                actions[agent] = actions_to_discrete(move_action, communicate_action)
+
+            observation, rewards, dones, infos = env.step(actions)
+
+            for agent in env.agents:
+                policies[agent].remember(
+                    to_remember[agent][0],
+                    to_remember[agent][1],
+                    to_remember[agent][2],
+                    to_remember[agent][3],
+                    to_remember[agent][4],
+                    to_remember[agent][5],
+                    rewards[agent],
+                    dones[agent],
+                )
+
             env.render()
+
+        for agent in env.agents:
+            policies[agent].learn()
 
 
 if __name__ == "__main__":
