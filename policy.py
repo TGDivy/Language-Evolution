@@ -40,7 +40,7 @@ class PPO(nn.Module):
         self.move = nn.Linear(self.inputs, 5)
         self.communicate = nn.Linear(self.inputs, 10)
 
-        self.softmax = Softmax()
+        self.softmax = Softmax(dim=1)
 
         self.critic = nn.Sequential(
             nn.Linear(self.inputs, self.inputs * 2),
@@ -53,6 +53,8 @@ class PPO(nn.Module):
         self.to(self.device)
 
     def forward(self, observations):
+
+        observations = observations.to("cuda")
 
         inputs = self.observation(observations)
         move = self.softmax(self.move(inputs))
@@ -78,7 +80,7 @@ class PPOMemory:
         self.clear_memory()
 
     def generate_batches(self):
-        n_states = self.total_memory
+        n_states = len(self.observations)
         batch_start = np.arange(0, n_states, self.batch_size)
         indices = np.arange(n_states, dtype=np.int64)
         np.random.shuffle(indices)
@@ -97,7 +99,7 @@ class PPOMemory:
                 T.tensor(self.rewards),
                 T.tensor(self.dones),
             ),
-            "batches": batches,
+            "batches": T.tensor(batches),
         }
 
         return dic
@@ -116,9 +118,9 @@ class PPOMemory:
         self.observations[self.counter] = observations[0]
 
         self.actions_move[self.counter] = move
-        self.probs_move = probs_move
+        self.probs_move[self.counter] = probs_move
         self.actions_communicate[self.counter] = communicate
-        self.probs_communicate = probs_communicate
+        self.probs_communicate[self.counter] = probs_communicate
 
         self.vals[self.counter] = vals
         self.rewards[self.counter] = reward
@@ -130,13 +132,13 @@ class PPOMemory:
         self.observations = T.zeros(self.total_memory, inputs)
 
         self.actions_move = T.zeros(self.total_memory, 1)
-        self.probs_move = T.zeros(self.total_memory, inputs)
+        self.probs_move = T.zeros(self.total_memory, 1)
         self.actions_communicate = T.zeros(self.total_memory, 1)
-        self.probs_communicate = T.zeros(self.total_memory, inputs)
+        self.probs_communicate = T.zeros(self.total_memory, 1)
 
-        self.vals = T.zeros(self.total_memory, 1)
-        self.rewards = T.zeros(self.total_memory, 1)
-        self.dones = T.zeros(self.total_memory, 1)
+        self.vals = T.zeros(self.total_memory)
+        self.rewards = T.zeros(self.total_memory)
+        self.dones = T.zeros(self.total_memory)
         self.counter = 0
 
 
@@ -268,8 +270,8 @@ class Agent:
                     total_loss += actor_loss
                     total_loss += self.entropy * T.mean(dist.entropy())
 
-                self.ppo.optimizer.zero_grad()
                 total_loss.backward()
                 self.ppo.optimizer.step()
+                self.ppo.optimizer.zero_grad()
 
         self.memory.clear_memory()

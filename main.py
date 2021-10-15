@@ -14,7 +14,7 @@ from policy import actions_to_discrete
 from dotmap import DotMap
 from tqdm import tqdm
 
-parameters = {
+params = {
     # exerpiment details
     "chkpt_dir": "tmp/ppo",
     # PPO memory
@@ -22,7 +22,7 @@ parameters = {
     "batch_size": 5,
     # learning hyper parameters actor critic models
     "n_epochs": 5,
-    "alpha": 1e-5,
+    "alpha": 1e-4,
     "gamma": 0.99,
     "gae_lambda": 0.95,
     "policy_clip": 0.1,
@@ -30,10 +30,10 @@ parameters = {
 }
 
 
-class parameters:
+class Utils:
     def __init__(self) -> None:
 
-        self.n_episodes = 50
+        self.n_episodes = 5000
         self.max_cycles = 25
 
         self.set_seed()
@@ -48,9 +48,9 @@ class parameters:
         np.random.seed(seed)
 
 
-def run(config: parameters):
+def run(config: Utils):
 
-    args = DotMap(parameters)
+    args = DotMap(params)
     env = reference.parallel_env()
 
     policies = {"agent_0": Agent(args), "agent_1": Agent(args)}
@@ -59,8 +59,9 @@ def run(config: parameters):
         observation = env.reset()
         env.render()
         rewards, dones = 0, False
+        total_reward = 0
 
-        for step in range(config.max_cycles):
+        for step in range(config.max_cycles - 1):
 
             actions = {}
             to_remember = {}
@@ -75,7 +76,7 @@ def run(config: parameters):
                         obs["communication"],
                     ]
                 )
-                obs_batch = T.tensor([obs_batch])
+                obs_batch = T.tensor([obs_batch], dtype=T.float)
 
                 (
                     move_probs,
@@ -94,7 +95,13 @@ def run(config: parameters):
                     value,
                 )
 
-                actions[agent] = actions_to_discrete(move_action, communicate_action)
+                actions[agent] = actions_to_discrete(
+                    move_action, communicate_action
+                ).item()
+
+            # print(actions)
+
+            actions[env.agents[1]] = 0
 
             observation, rewards, dones, infos = env.step(actions)
 
@@ -109,13 +116,19 @@ def run(config: parameters):
                     rewards[agent],
                     dones[agent],
                 )
+                total_reward += rewards[agent]
+                break
 
             env.render()
 
+        config.logger.add_scalar("rewards/avg_reward", total_reward / ep_i + 1)
+
         for agent in env.agents:
             policies[agent].learn()
+            print("yipeeeee")
+            break
 
 
 if __name__ == "__main__":
-    config = parameters()
+    config = Utils()
     run(config)
