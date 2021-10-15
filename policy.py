@@ -1,4 +1,5 @@
 import numpy as np
+from stable_baselines3 import PPO
 
 
 def actions_to_discrete(movement, symbol):
