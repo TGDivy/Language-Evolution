@@ -94,9 +94,9 @@ class Scenario(BaseScenario):
 
         obs = {
             "current_velocity": agent.state.p_vel,
-            "landmarks": landmarks,
-            "goal": goal_color,
-            "communication": comm,
+            "landmarks": np.concatenate(landmarks),
+            "goal": goal_color[1],
+            "communication": comm[0],
         }
 
         return obs
