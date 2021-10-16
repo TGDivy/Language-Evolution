@@ -8,9 +8,9 @@ import numpy as np
 from gym.spaces import Box, Discrete
 from torch.utils.tensorboard import SummaryWriter
 import torch as T
-from ppo import random_policy
-from ppo import Agent
-from ppo import actions_to_discrete
+from ppo_shared import random_policy
+from ppo_shared import Agent
+from ppo_shared import actions_to_discrete
 from dotmap import DotMap
 from tqdm import tqdm
 
@@ -40,7 +40,7 @@ class Utils:
 
         run_num = 1
 
-        log_dir = "runs/logs/"
+        log_dir = "runs/ppo_shared/"
         self.logger = SummaryWriter(str(log_dir))
 
     def set_seed(self, seed=1000):
@@ -53,7 +53,7 @@ def run(config: Utils):
     args = DotMap(params)
     env = reference.parallel_env()
 
-    policies = {"agent_0": Agent(args), "agent_1": Agent(args)}
+    policy = Agent(args)
     steps = 0
 
     for ep_i in tqdm(range(0, config.n_episodes)):
@@ -85,7 +85,7 @@ def run(config: Utils):
                     move_action,
                     communicate_action,
                     value,
-                ) = policies[agent].choose_action(obs_batch)
+                ) = policy.choose_action(obs_batch)
 
                 to_remember[agent] = (
                     obs_batch,
@@ -100,14 +100,14 @@ def run(config: Utils):
                     move_action, communicate_action
                 ).item()
 
-            # print(actions)
-
-            # actions[env.agents[1]] = 0
-
             observation, rewards, dones, infos = env.step(actions)
             end_reward = 0
             for agent in env.agents:
-                policies[agent].remember(
+                if agent == "agent_0":
+                    memory = policy.memory1
+                else:
+                    memory = policy.memory2
+                policy.remember(
                     to_remember[agent][0],
                     to_remember[agent][1],
                     to_remember[agent][2],
@@ -116,6 +116,7 @@ def run(config: Utils):
                     to_remember[agent][5],
                     -rewards[agent],
                     dones[agent],
+                    memory,
                 )
                 end_reward += rewards[agent]
                 # break
@@ -126,7 +127,11 @@ def run(config: Utils):
 
             if step % args.total_memory == 0:
                 for agent in env.agents:
-                    policies[agent].learn()
+                    if agent == "agent_0":
+                        memory = policy.memory1
+                    else:
+                        memory = policy.memory2
+                    policy.learn(memory)
 
         config.logger.add_scalar("rewards/end_reward", end_reward, (ep_i + 1))
 
