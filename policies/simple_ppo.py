@@ -8,23 +8,40 @@ from torch.nn import Softmax
 from torch.distributions.categorical import Categorical
 from torch.nn import HuberLoss
 from dotmap import DotMap
-from base import base_policy, Args
+from policies.base import base_policy, Args
 from pettingzoo import ParallelEnv
+
+args = {
+    # exerpiment details
+    "chkpt_dir": "tmp/ppo",
+    "log_dir": "run/simple_ppo/",
+    # PPO memory
+    "total_memory": 25,
+    "batch_size": 5,
+    # learning hyper parameters actor critic models
+    "n_epochs": 3,
+    "alpha": 1e-4,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "policy_clip": 0.2,
+    "entropy": 0.01,
+    "seed": 7000,
+}
 
 
 class PPO(nn.Module):
     def __init__(self, args: Args):
         super(PPO, self).__init__()
-        alpha = args.alpha * 4
+        alpha = args.alpha
         self.checkpoint_file = os.path.join(args.chkpt_dir, "actor_torch_ppo")
 
         self.landmarks = 1
         self.inputs = 2 + self.landmarks * 2
 
         self.observation = nn.Sequential(
-            nn.Linear(self.inputs, self.inputs * 4),
+            nn.Linear(self.inputs, self.inputs * 2),
             nn.ReLU(),
-            nn.Linear(self.inputs * 4, self.inputs * 2),
+            nn.Linear(self.inputs * 2, self.inputs * 2),
             nn.ReLU(),
             nn.Linear(self.inputs * 2, self.inputs),
             nn.ReLU(),
@@ -78,17 +95,17 @@ class PPOMemory:
         batches = [indices[i : i + self.batch_size] for i in batch_start]
 
         dic = {
-            "observations": T.tensor(self.observations),
+            "observations": self.observations.clone().detach().requires_grad_(True),
             "action": (
-                T.tensor(self.actions_move),
-                T.tensor(self.probs_move),
-                T.tensor(self.actions_communicate),
-                T.tensor(self.probs_communicate),
+                self.actions_move.clone().detach().requires_grad_(True),
+                self.probs_move.clone().detach().requires_grad_(True),
+                self.actions_communicate.clone().detach().requires_grad_(True),
+                self.probs_communicate.clone().detach().requires_grad_(True),
             ),
             "rewards": (
-                T.tensor(self.vals),
-                T.tensor(self.rewards),
-                T.tensor(self.dones),
+                self.vals.clone().detach().requires_grad_(True),
+                self.rewards.clone().detach().requires_grad_(True),
+                self.dones.clone().detach().requires_grad_(True),
             ),
             "batches": T.tensor(batches),
         }
@@ -119,7 +136,7 @@ class PPOMemory:
         self.counter += 1
 
     def clear_memory(self):
-        inputs = 3 * 5 + 10 + 3 + 2
+        inputs = 2 + 2
         self.observations = T.zeros(self.total_memory, inputs)
 
         self.actions_move = T.zeros(self.total_memory, 1)
@@ -245,7 +262,7 @@ class Agent:
                 #### Unit, City Actors Loss
                 for (dist, actions, old_probs) in [
                     (move, actions_move, old_move_probs),
-                    (communicate, actions_communicate, old_communicate_probs),
+                    # (communicate, actions_communicate, old_communicate_probs),
                 ]:
                     dist = Categorical(dist)
                     new_probs = dist.log_prob(actions)
@@ -268,31 +285,18 @@ class Agent:
         self.memory.clear_memory()
 
 
-args = {
-    # exerpiment details
-    "chkpt_dir": "tmp/ppo",
-    # PPO memory
-    "total_memory": 25,
-    "batch_size": 5,
-    # learning hyper parameters actor critic models
-    "n_epochs": 5,
-    "alpha": 1e-4,
-    "gamma": 0.99,
-    "gae_lambda": 0.95,
-    "policy_clip": 0.1,
-    "entropy": 0.01,
-}
-
-
 class policy(base_policy):
     def __init__(self, args: Args) -> None:
         self.args = args
         self.agent1 = Agent(self.args)
         self.agent_name = "agent_0"
         self.to_remember = {}
+        self.logger = args.logger
+
+        self.added_graph = False
 
     def action(self, observations):
-        obs = observations["simple_v2"]
+        obs = observations[self.agent_name]
 
         obs_batch = T.tensor([obs], dtype=T.float)
 
@@ -303,6 +307,10 @@ class policy(base_policy):
             communicate_action,
             value,
         ) = self.agent1.choose_action(obs_batch)
+
+        if not self.added_graph:
+            self.logger.add_graph(self.agent1.ppo, obs_batch)
+            self.added_graph = True
 
         self.to_remember[self.agent_name] = (
             obs_batch,
@@ -316,6 +324,9 @@ class policy(base_policy):
         actions = {}
 
         actions[self.agent_name] = move_action.item()
+        print(move_action.item())
+
+        return actions
 
     def store(self, rewards, dones):
 
@@ -326,6 +337,9 @@ class policy(base_policy):
             self.to_remember[self.agent_name][3],
             self.to_remember[self.agent_name][4],
             self.to_remember[self.agent_name][5],
-            -rewards[self.agent_name],
+            rewards[self.agent_name],
             dones[self.agent_name],
         )
+
+        if self.agent1.memory.counter == self.args.total_memory:
+            self.agent1.learn()

@@ -1,3 +1,7 @@
+import os
+from torch.utils.tensorboard import SummaryWriter
+
+
 class base_policy:
     def __init__(self) -> None:
         pass
@@ -13,9 +17,10 @@ class Args:
     def __init__(
         self,
         chkpt_dir="/",
-        log_dir="/run/",
+        log_dir="run",
+        exp_name="exp_name",
         n_episodes=5000,
-        max_cycles=25,
+        max_cycles=50,
         seed=7,
         n_epochs=5,
         alpha=1e-4,
@@ -28,7 +33,10 @@ class Args:
     ) -> None:
 
         self.chkpt_dir = chkpt_dir
-        self.log_dir = log_dir
+        print(os.getcwd())
+        self.log_dir = os.path.join(os.getcwd(), log_dir, exp_name)
+        self.exp_name = exp_name
+        print(self.log_dir)
 
         self.n_episodes = n_episodes
         self.max_cycles = max_cycles
@@ -45,3 +53,10 @@ class Args:
         self.gae_lambda = gae_lambda
         self.policy_clip = policy_clip
         self.entropy = entropy
+
+        self.logger = self.logging()
+
+    def logging(self):
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+        return SummaryWriter(self.log_dir)
