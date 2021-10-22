@@ -86,6 +86,7 @@ class World:  # multi-agent world
     def __init__(self):
         # list of agents and entities (can change at execution-time!)
         self.agents = []
+        self.actions = []
         self.landmarks = []
         # communication channel dimensionality
         self.dim_c = 0
@@ -119,6 +120,9 @@ class World:  # multi-agent world
     # update state of the world
     def step(self):
         # set actions for scripted agents
+        # self.actions = []
+        for agent in self.agents:
+            self.actions.append(agent.action.u)
         for agent in self.scripted_agents:
             agent.action = agent.action_callback(agent, self)
         # gather forces applied to entities
