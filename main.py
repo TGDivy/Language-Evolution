@@ -9,9 +9,9 @@ from gym.spaces import Box, Discrete
 from torch.utils.tensorboard import SummaryWriter
 import torch as T
 
-from policies import simple_ppo
-import policies
-from policies.base import base_policy, Args
+from framework import simple_ppo
+import framework
+from framework.base import base_policy, Args
 from pettingzoo.utils.conversions import to_parallel_wrapper
 from pettingzoo.mpe._mpe_utils.simple_env import make_env
 from pettingzoo.utils.conversions import parallel_wrapper_fn
