@@ -8,7 +8,7 @@ from torch.nn import Softmax
 from torch.distributions.categorical import Categorical
 from torch.nn import HuberLoss
 from dotmap import DotMap
-from framework.base import base_policy, Args
+from framework.utils.base import base_policy, Args
 from pettingzoo import ParallelEnv
 
 args = {
