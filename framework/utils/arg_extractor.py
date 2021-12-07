@@ -23,16 +23,10 @@ def get_args():
         "--batch_size",
         nargs="?",
         type=int,
-        default=100,
+        default=5,
         help="Batch_size for experiment",
     )
-    parser.add_argument(
-        "--continue_from_epoch",
-        nargs="?",
-        type=int,
-        default=-1,
-        help="Epoch you want to continue training from while restarting an experiment",
-    )
+
     parser.add_argument(
         "--seed",
         nargs="?",
@@ -41,57 +35,56 @@ def get_args():
         help="Seed to use for random number generator for experiment",
     )
     parser.add_argument(
-        "--image_num_channels",
+        "--n_episodes",
+        nargs="?",
+        type=int,
+        default=100,
+        help="n_episodes",
+    )
+    parser.add_argument(
+        "--episode_len",
+        nargs="?",
+        type=int,
+        default=25,
+        help="episode_len",
+    )
+    parser.add_argument(
+        "--n_epochs",
         nargs="?",
         type=int,
         default=3,
         help="The channel dimensionality of our image-data",
     )
+    parser.add_argument("--alpha", nargs="?", type=float, default=1e-4, help="alpha")
+    parser.add_argument("--gamma", nargs="?", type=float, default=0.99, help="gamma")
+
     parser.add_argument(
-        "--image_height", nargs="?", type=int, default=32, help="Height of image data"
-    )
-    parser.add_argument(
-        "--image_width", nargs="?", type=int, default=32, help="Width of image data"
-    )
-    parser.add_argument(
-        "--num_stages",
+        "--gae_lambda",
         nargs="?",
-        type=int,
-        default=3,
-        help="Number of convolutional stages in the network. A stage is considered a sequence of "
-        "convolutional layers where the input volume remains the same in the spacial dimension and"
-        " is always terminated by a dimensionality reduction stage",
+        type=float,
+        default=0.95,
+        help="gae_lambda",
     )
     parser.add_argument(
-        "--num_blocks_per_stage",
+        "--policy_clip",
         nargs="?",
-        type=int,
-        default=5,
-        help="Number of convolutional blocks in each stage, not including the reduction stage."
-        " A convolutional block is made up of two convolutional layers activated using the "
-        " leaky-relu non-linearity",
+        type=float,
+        default=0.2,
+        help="policy_clip",
     )
     parser.add_argument(
-        "--num_filters",
+        "--entropy",
         nargs="?",
-        type=int,
-        default=16,
-        help="Number of convolutional filters per convolutional layer in the network (excluding "
-        "dimensionality reduction layers)",
+        type=float,
+        default=0.01,
+        help="0.01",
     )
+
     parser.add_argument(
-        "--num_epochs",
+        "--model",
         nargs="?",
-        type=int,
-        default=100,
-        help="Total number of epochs for model training",
-    )
-    parser.add_argument(
-        "--num_classes",
-        nargs="?",
-        type=int,
-        default=100,
-        help="Number of classes in the dataset",
+        type=str,
+        help="Policy to be used",
     )
     parser.add_argument(
         "--experiment_name",
@@ -100,29 +93,12 @@ def get_args():
         default="exp_1",
         help="Experiment name - to be used for building the experiment folder",
     )
+
     parser.add_argument(
-        "--use_gpu",
-        nargs="?",
-        type=str2bool,
-        default=True,
-        help="A flag indicating whether we will use GPU acceleration or not",
-    )
-    parser.add_argument(
-        "--weight_decay_coefficient",
-        nargs="?",
-        type=float,
-        default=0,
-        help="Weight decay to use for Adam",
-    )
-    parser.add_argument(
-        "--lr", nargs="?", type=float, default=0.001, help="Learning rate for Adam"
-    )
-    parser.add_argument(
-        "--block_type",
+        "--env",
         type=str,
-        default="conv_block",
-        help="Type of convolutional blocks to use in our network "
-        "(This argument will be useful in running experiments to debug your network)",
+        default="simple",
+        help="environment for agent",
     )
     args = parser.parse_args()
     print(args)
