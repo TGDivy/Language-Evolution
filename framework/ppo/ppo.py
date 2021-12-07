@@ -1,5 +1,4 @@
 import numpy as np
-from stable_baselines3 import PPO
 import torch as T
 from torch import nn
 from torch import optim
@@ -7,82 +6,23 @@ import os
 from torch.nn import Softmax
 from torch.distributions.categorical import Categorical
 from torch.nn import HuberLoss
-from dotmap import DotMap
-from policies.base import base_policy, Args
-from pettingzoo import ParallelEnv
-
-args = {
-    # exerpiment details
-    "chkpt_dir": "tmp/ppo",
-    "log_dir": "run/simple_ppo/",
-    # PPO memory
-    "total_memory": 25,
-    "batch_size": 5,
-    # learning hyper parameters actor critic models
-    "n_epochs": 3,
-    "alpha": 1e-4,
-    "gamma": 0.99,
-    "gae_lambda": 0.95,
-    "policy_clip": 0.2,
-    "entropy": 0.01,
-    "seed": 7000,
-}
+from model_arc import PolicyNetwork as PPO
 
 
-class PPO(nn.Module):
-    def __init__(self, args: Args):
-        super(PPO, self).__init__()
-        alpha = args.alpha
-        self.checkpoint_file = os.path.join(args.chkpt_dir, "actor_torch_ppo")
+def actions_to_discrete(movement, symbol):
+    return movement + symbol * 5
 
-        self.landmarks = 1
-        self.inputs = 2 + self.landmarks * 2
 
-        self.observation = nn.Sequential(
-            nn.Linear(self.inputs, self.inputs * 2),
-            nn.ReLU(),
-            nn.Linear(self.inputs * 2, self.inputs * 2),
-            nn.ReLU(),
-            nn.Linear(self.inputs * 2, self.inputs),
-            nn.ReLU(),
-        )
-
-        self.move = nn.Linear(self.inputs, 5)
-        self.communicate = nn.Linear(self.inputs, 10)
-
-        self.softmax = Softmax(dim=1)
-
-        self.critic = nn.Sequential(
-            nn.Linear(self.inputs, self.inputs * 2),
-            nn.ReLU(),
-            nn.Linear(self.inputs * 2, 1),
-        )
-
-        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
-        self.device = T.device("cuda:0" if T.cuda.is_available() else "cpu")
-        self.to(self.device)
-
-    def forward(self, observations):
-
-        observations = observations.to("cuda")
-
-        inputs = self.observation(observations)
-        move = self.softmax(self.move(inputs))
-        communicate = self.softmax(self.communicate(inputs))
-
-        value = self.critic(inputs)
-
-        return move, communicate, value
-
-    def save_checkpoint(self):
-        T.save(self.state_dict(), self.checkpoint_file)
-
-    def load_checkpoint(self):
-        self.load_state_dict(T.load(self.checkpoint_file))
+def random_policy():
+    movement = np.random.randint(0, 4)
+    symbol = np.random.randint(0, 9)
+    return actions_to_discrete(movement, symbol)
 
 
 class PPOMemory:
-    def __init__(self, args: Args):
+    def __init__(self, args):
+        self.agents = 2
+        self.landmarks = 3
         self.batch_size = args.batch_size
         self.total_memory = args.total_memory
         self.clear_memory()
@@ -95,17 +35,17 @@ class PPOMemory:
         batches = [indices[i : i + self.batch_size] for i in batch_start]
 
         dic = {
-            "observations": self.observations.clone().detach().requires_grad_(True),
+            "observations": T.tensor(self.observations),
             "action": (
-                self.actions_move.clone().detach().requires_grad_(True),
-                self.probs_move.clone().detach().requires_grad_(True),
-                self.actions_communicate.clone().detach().requires_grad_(True),
-                self.probs_communicate.clone().detach().requires_grad_(True),
+                T.tensor(self.actions_move),
+                T.tensor(self.probs_move),
+                T.tensor(self.actions_communicate),
+                T.tensor(self.probs_communicate),
             ),
             "rewards": (
-                self.vals.clone().detach().requires_grad_(True),
-                self.rewards.clone().detach().requires_grad_(True),
-                self.dones.clone().detach().requires_grad_(True),
+                T.tensor(self.vals),
+                T.tensor(self.rewards),
+                T.tensor(self.dones),
             ),
             "batches": T.tensor(batches),
         }
@@ -136,7 +76,7 @@ class PPOMemory:
         self.counter += 1
 
     def clear_memory(self):
-        inputs = 2 + 2
+        inputs = 3 * 5 + 10 + 3 + 2
         self.observations = T.zeros(self.total_memory, inputs)
 
         self.actions_move = T.zeros(self.total_memory, 1)
@@ -151,7 +91,7 @@ class PPOMemory:
 
 
 class Agent:
-    def __init__(self, args: Args):
+    def __init__(self, args):
         self.gamma = args.gamma
         self.policy_clip = args.policy_clip
         self.n_epochs = args.n_epochs
@@ -262,7 +202,7 @@ class Agent:
                 #### Unit, City Actors Loss
                 for (dist, actions, old_probs) in [
                     (move, actions_move, old_move_probs),
-                    # (communicate, actions_communicate, old_communicate_probs),
+                    (communicate, actions_communicate, old_communicate_probs),
                 ]:
                     dist = Categorical(dist)
                     new_probs = dist.log_prob(actions)
@@ -283,63 +223,3 @@ class Agent:
                 self.ppo.optimizer.zero_grad()
 
         self.memory.clear_memory()
-
-
-class policy(base_policy):
-    def __init__(self, args: Args) -> None:
-        self.args = args
-        self.agent1 = Agent(self.args)
-        self.agent_name = "agent_0"
-        self.to_remember = {}
-        self.logger = args.logger
-
-        self.added_graph = False
-
-    def action(self, observations):
-        obs = observations[self.agent_name]
-
-        obs_batch = T.tensor([obs], dtype=T.float)
-
-        (
-            move_probs,
-            communicate_probs,
-            move_action,
-            communicate_action,
-            value,
-        ) = self.agent1.choose_action(obs_batch)
-
-        if not self.added_graph:
-            self.logger.add_graph(self.agent1.ppo, obs_batch)
-            self.added_graph = True
-
-        self.to_remember[self.agent_name] = (
-            obs_batch,
-            move_action,
-            move_probs,
-            communicate_action,
-            communicate_probs,
-            value,
-        )
-
-        actions = {}
-
-        actions[self.agent_name] = move_action.item()
-        print(move_action.item())
-
-        return actions
-
-    def store(self, rewards, dones):
-
-        self.agent1.remember(
-            self.to_remember[self.agent_name][0],
-            self.to_remember[self.agent_name][1],
-            self.to_remember[self.agent_name][2],
-            self.to_remember[self.agent_name][3],
-            self.to_remember[self.agent_name][4],
-            self.to_remember[self.agent_name][5],
-            rewards[self.agent_name],
-            dones[self.agent_name],
-        )
-
-        if self.agent1.memory.counter == self.args.total_memory:
-            self.agent1.learn()
