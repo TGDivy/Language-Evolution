@@ -10,7 +10,7 @@ class ExperimentBuilder(nn.Module):
     def __init__(
         self,
         environment,
-        model,
+        Policy,
         experiment_name,
         n_episodes,
         episode_len,
@@ -20,7 +20,7 @@ class ExperimentBuilder(nn.Module):
         super(ExperimentBuilder, self).__init__()
 
         self.experiment_name = experiment_name
-        self.model = model
+        self.Policy = Policy
 
         self.env = environment
         self.episode_len = episode_len
@@ -118,16 +118,15 @@ class ExperimentBuilder(nn.Module):
         for ep_i in tqdm(range(0, self.n_episodes)):
             observation = self.env.reset()
             rewards, dones = 0, False
-            observation = torch.tensor(observation, device="cuda")
+
             for step in range(self.episode_len - 1):
-                actions = self.model.choose_action(observation)
-                act = [actions[2].item()]
-                print(act, observation)
-                # print(self.env.action_space)
-                observation, rewards, dones, infos = self.env.step(act)
-                observation = torch.tensor(observation, device="cuda")
+                actions = self.Policy.action(observation)
+                print(actions, observation)
+
+                observation, rewards, dones, infos = self.env.step(actions)
+                self.Policy.store(rewards, dones)
+
                 self.env.render()
-                # self.model.store(rewards, dones)
                 total_steps += 1
 
             # reward = sum([reward for reward in rewards.values()])

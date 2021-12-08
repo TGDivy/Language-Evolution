@@ -33,7 +33,8 @@ class PPOMemory:
     def __init__(self, input_size, batch_size, total_memory):
         self.batch_size = batch_size
         self.total_memory = total_memory
-        self.input_size = input_size
+        self.input_size = input_size[-1]
+        # print(input_size)
         self.clear_memory()
 
     def generate_batches(self):
@@ -107,7 +108,7 @@ class Agent:
         self.entropy = args.entropy
 
         self.ppo = PPO(input_shape, num_layers, num_filters)
-        self.memory = PPOMemory(args)
+        self.memory = PPOMemory(input_shape, args.batch_size, args.total_memory)
         self.huber = HuberLoss(reduction="mean", delta=1.0)
         self.device = self.ppo.device
 
