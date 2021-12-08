@@ -10,7 +10,7 @@ class ExperimentBuilder(nn.Module):
     def __init__(
         self,
         environment,
-        network_model,
+        model,
         experiment_name,
         n_episodes,
         episode_len,
@@ -20,23 +20,23 @@ class ExperimentBuilder(nn.Module):
         super(ExperimentBuilder, self).__init__()
 
         self.experiment_name = experiment_name
-        self.model = network_model
+        self.model = model
 
-        if torch.cuda.device_count() > 1 and use_gpu:
-            self.device = torch.cuda.current_device()
-            self.model.to(self.device)
-            self.model = nn.DataParallel(module=self.model)
-            print("Use Multi GPU", self.device)
-        elif torch.cuda.device_count() == 1 and use_gpu:
-            self.device = torch.cuda.current_device()
-            self.model.to(self.device)  # sends the model from the cpu to the gpu
-            print("Use GPU", self.device)
-        else:
-            print("use CPU")
-            self.device = torch.device("cpu")  # sets the device to be CPU
-            print(self.device)
+        # if torch.cuda.device_count() > 1 and use_gpu:
+        #     self.device = torch.cuda.current_device()
+        #     self.model.to(self.device)
+        #     self.model = nn.DataParallel(module=self.model)
+        #     print("Use Multi GPU", self.device)
+        # elif torch.cuda.device_count() == 1 and use_gpu:
+        #     self.device = torch.cuda.current_device()
+        #     self.model.to(self.device)  # sends the model from the cpu to the gpu
+        #     print("Use GPU", self.device)
+        # else:
+        #     print("use CPU")
+        #     self.device = torch.device("cpu")  # sets the device to be CPU
+        #     print(self.device)
 
-        self.model.reset_parameters()  # re-initialize network parameters
+        # self.model.reset_parameters()  # re-initialize network parameters
 
         self.env = environment
         self.episode_len = episode_len
@@ -44,11 +44,11 @@ class ExperimentBuilder(nn.Module):
         for name, value in self.named_parameters():
             print(name, value.shape)
 
-        self.optimizer = optim.Adam(
-            self.parameters(),
-            amsgrad=False,
-            lr=lr,
-        )
+        # self.optimizer = optim.Adam(
+        #     self.parameters(),
+        #     amsgrad=False,
+        #     lr=lr,
+        # )
 
         # self.learning_rate_scheduler = optim.lr_scheduler.CosineAnnealingLR(
         #     self.optimizer, T_max=num_epochs, eta_min=0.00002
@@ -79,9 +79,9 @@ class ExperimentBuilder(nn.Module):
             )  # create the experiment saved models directory
 
         self.n_episodes = n_episodes
-        self.criterion = nn.CrossEntropyLoss().to(
-            self.device
-        )  # send the loss computation to the GPU
+        # self.criterion = nn.CrossEntropyLoss().to(
+        #     self.device
+        # )  # send the loss computation to the GPU
 
     def save_model(self, model_save_dir, model_save_name, index):
         """
@@ -150,11 +150,17 @@ class ExperimentBuilder(nn.Module):
         for ep_i in tqdm(range(0, self.n_episodes)):
             observation = self.env.reset()
             rewards, dones = 0, False
+            observation = torch.tensor(observation, device="cuda")
             for step in range(self.episode_len - 1):
-                actions = self.agents.action(observation)
-                observation, rewards, dones, infos = self.env.step(actions)
-                self.agents.store(rewards, dones)
+                actions = self.model.choose_action(observation)
+                act = [actions[2].item()]
+                print(act, observation)
+                # print(self.env.action_space)
+                observation, rewards, dones, infos = self.env.step(act)
+                observation = torch.tensor(observation, device="cuda")
+                self.env.render()
+                # self.model.store(rewards, dones)
                 total_steps += 1
 
-            reward = sum([reward for reward in rewards.values()])
-            self.logger.add_scalar("rewards/end_reward", reward, (ep_i + 1))
+            # reward = sum([reward for reward in rewards.values()])
+            # self.logger.add_scalar("rewards/end_reward", reward, (ep_i + 1))

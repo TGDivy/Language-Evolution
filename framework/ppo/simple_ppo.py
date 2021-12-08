@@ -1,5 +1,4 @@
 import numpy as np
-from stable_baselines3 import PPO
 import torch as T
 from torch import nn
 from torch import optim
@@ -10,6 +9,7 @@ from torch.nn import HuberLoss
 from dotmap import DotMap
 from framework.utils.base import base_policy, Args
 from pettingzoo import ParallelEnv
+from framework.ppo.model_arc import PolicyNetwork as PPO
 
 args = {
     # exerpiment details
@@ -27,58 +27,6 @@ args = {
     "entropy": 0.01,
     "seed": 7000,
 }
-
-
-class PPO(nn.Module):
-    def __init__(self, args: Args):
-        super(PPO, self).__init__()
-        alpha = args.alpha
-        self.checkpoint_file = os.path.join(args.chkpt_dir, "actor_torch_ppo")
-
-        self.landmarks = 1
-        self.inputs = 2 + self.landmarks * 2
-
-        self.observation = nn.Sequential(
-            nn.Linear(self.inputs, self.inputs * 2),
-            nn.ReLU(),
-            nn.Linear(self.inputs * 2, self.inputs * 2),
-            nn.ReLU(),
-            nn.Linear(self.inputs * 2, self.inputs),
-            nn.ReLU(),
-        )
-
-        self.move = nn.Linear(self.inputs, 5)
-        self.communicate = nn.Linear(self.inputs, 10)
-
-        self.softmax = Softmax(dim=1)
-
-        self.critic = nn.Sequential(
-            nn.Linear(self.inputs, self.inputs * 2),
-            nn.ReLU(),
-            nn.Linear(self.inputs * 2, 1),
-        )
-
-        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
-        self.device = T.device("cuda:0" if T.cuda.is_available() else "cpu")
-        self.to(self.device)
-
-    def forward(self, observations):
-
-        observations = observations.to("cuda")
-
-        inputs = self.observation(observations)
-        move = self.softmax(self.move(inputs))
-        communicate = self.softmax(self.communicate(inputs))
-
-        value = self.critic(inputs)
-
-        return move, communicate, value
-
-    def save_checkpoint(self):
-        T.save(self.state_dict(), self.checkpoint_file)
-
-    def load_checkpoint(self):
-        self.load_state_dict(T.load(self.checkpoint_file))
 
 
 class PPOMemory:
@@ -151,14 +99,14 @@ class PPOMemory:
 
 
 class Agent:
-    def __init__(self, args: Args):
+    def __init__(self, args, input_shape, num_layers, num_filters):
         self.gamma = args.gamma
         self.policy_clip = args.policy_clip
         self.n_epochs = args.n_epochs
         self.gae_lambda = args.gae_lambda
         self.entropy = args.entropy
 
-        self.ppo = PPO(args)
+        self.ppo = PPO(input_shape, num_layers, num_filters)
         self.memory = PPOMemory(args)
         self.huber = HuberLoss(reduction="mean", delta=1.0)
         self.device = self.ppo.device

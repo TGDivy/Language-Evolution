@@ -53,7 +53,28 @@ def get_args():
         nargs="?",
         type=int,
         default=3,
-        help="The channel dimensionality of our image-data",
+        help="n_epochs",
+    )
+    parser.add_argument(
+        "--num_layers",
+        nargs="?",
+        type=int,
+        default=7,
+        help="num_layers",
+    )
+    parser.add_argument(
+        "--num_filters",
+        nargs="?",
+        type=int,
+        default=128,
+        help="num_filters",
+    )
+    parser.add_argument(
+        "--total_memory",
+        nargs="?",
+        type=int,
+        default=10,
+        help="num_filters",
     )
     parser.add_argument("--alpha", nargs="?", type=float, default=1e-4, help="alpha")
     parser.add_argument("--gamma", nargs="?", type=float, default=0.99, help="gamma")
@@ -71,6 +92,13 @@ def get_args():
         type=float,
         default=0.2,
         help="policy_clip",
+    )
+    parser.add_argument(
+        "--lr",
+        nargs="?",
+        type=float,
+        default=1e-3,
+        help="lr",
     )
     parser.add_argument(
         "--entropy",

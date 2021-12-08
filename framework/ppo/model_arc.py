@@ -11,11 +11,11 @@ class PolicyNetwork(nn.Module):
         self.num_layers = num_layers
         self.num_filters = num_filters
 
+        self.build_module()
+
         self.optimizer = optim.Adam(self.parameters(), lr=0.001)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
-
-        self.build_module()
 
     def build_module(self):
         """
@@ -38,23 +38,23 @@ class PolicyNetwork(nn.Module):
             num_filters=self.num_filters,
         )
         out = self.layer_dict["input_FCC"].forward(out)
-
+        print(out.shape, tuple(out.shape))
         self.layer_dict["action"] = nn.Linear(
-            in_features=out.shape,
+            in_features=out.shape[1],
             out_features=5,
             bias=True,
         )
         outact = self.layer_dict["action"].forward(out)
 
         self.layer_dict["comm"] = nn.Linear(
-            in_features=out.shape,
+            in_features=out.shape[1],
             out_features=10,
             bias=True,
         )
         outcom = self.layer_dict["comm"].forward(out)
 
         self.layer_dict["critic"] = nn.Linear(
-            in_features=out.shape,
+            in_features=out.shape[1],
             out_features=1,
             bias=True,
         )

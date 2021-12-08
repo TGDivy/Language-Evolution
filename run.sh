@@ -1,1 +1,1 @@
-python framework/run.py --model "ppo"
+python run.py --model "ppo"
