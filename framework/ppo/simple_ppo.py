@@ -30,9 +30,10 @@ args = {
 
 
 class PPOMemory:
-    def __init__(self, args: Args):
-        self.batch_size = args.batch_size
-        self.total_memory = args.total_memory
+    def __init__(self, input_size, batch_size, total_memory):
+        self.batch_size = batch_size
+        self.total_memory = total_memory
+        self.input_size = input_size
         self.clear_memory()
 
     def generate_batches(self):
@@ -84,8 +85,7 @@ class PPOMemory:
         self.counter += 1
 
     def clear_memory(self):
-        inputs = 2 + 2
-        self.observations = T.zeros(self.total_memory, inputs)
+        self.observations = T.zeros(self.total_memory, self.input_size)
 
         self.actions_move = T.zeros(self.total_memory, 1)
         self.probs_move = T.zeros(self.total_memory, 1)

@@ -22,37 +22,11 @@ class ExperimentBuilder(nn.Module):
         self.experiment_name = experiment_name
         self.model = model
 
-        # if torch.cuda.device_count() > 1 and use_gpu:
-        #     self.device = torch.cuda.current_device()
-        #     self.model.to(self.device)
-        #     self.model = nn.DataParallel(module=self.model)
-        #     print("Use Multi GPU", self.device)
-        # elif torch.cuda.device_count() == 1 and use_gpu:
-        #     self.device = torch.cuda.current_device()
-        #     self.model.to(self.device)  # sends the model from the cpu to the gpu
-        #     print("Use GPU", self.device)
-        # else:
-        #     print("use CPU")
-        #     self.device = torch.device("cpu")  # sets the device to be CPU
-        #     print(self.device)
-
-        # self.model.reset_parameters()  # re-initialize network parameters
-
         self.env = environment
         self.episode_len = episode_len
         print("System learnable parameters")
         for name, value in self.named_parameters():
             print(name, value.shape)
-
-        # self.optimizer = optim.Adam(
-        #     self.parameters(),
-        #     amsgrad=False,
-        #     lr=lr,
-        # )
-
-        # self.learning_rate_scheduler = optim.lr_scheduler.CosineAnnealingLR(
-        #     self.optimizer, T_max=num_epochs, eta_min=0.00002
-        # )
 
         # Generate the directory names
         self.experiment_folder = os.path.join(
@@ -65,23 +39,17 @@ class ExperimentBuilder(nn.Module):
             os.path.join(self.experiment_folder, "saved_models")
         )
 
-        # Set best models to be at 0 since we are just starting
         self.best_val_model_idx = 0
         self.best_val_model_acc = 0.0
 
-        if not os.path.exists(
-            self.experiment_folder
-        ):  # If experiment directory does not exist
+        if not os.path.exists(self.experiment_folder):
+            # If experiment directory does not exist
             os.mkdir(self.experiment_folder)  # create the experiment directory
             os.mkdir(self.experiment_logs)  # create the experiment log directory
-            os.mkdir(
-                self.experiment_saved_models
-            )  # create the experiment saved models directory
+            os.mkdir(self.experiment_saved_models)
+            # create the experiment saved models directory
 
         self.n_episodes = n_episodes
-        # self.criterion = nn.CrossEntropyLoss().to(
-        #     self.device
-        # )  # send the loss computation to the GPU
 
     def save_model(self, model_save_dir, model_save_name, index):
         """
