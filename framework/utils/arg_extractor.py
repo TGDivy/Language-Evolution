@@ -80,7 +80,7 @@ def get_args():
     parser.add_argument("--gamma", nargs="?", type=float, default=0.99, help="gamma")
 
     parser.add_argument(
-        "--communicate", nargs="?", type=bool, default=False, help="communicate"
+        "--communicate", nargs="?", type=int, default=0, help="communicate"
     )
 
     parser.add_argument(

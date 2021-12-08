@@ -7,14 +7,15 @@ from .._mpe_utils.scenario import BaseScenario
 class Scenario(BaseScenario):
     def make_world(self):
         world = World()
+        world.dim_c = 10
         # add agents
         world.agents = [Agent() for i in range(1)]
         for i, agent in enumerate(world.agents):
             agent.name = f"agent_{i}"
             agent.collide = False
-            agent.silent = True
+            agent.silent = False
         # add landmarks
-        world.landmarks = [Landmark() for i in range(1)]
+        world.landmarks = [Landmark() for i in range(3)]
         for i, landmark in enumerate(world.landmarks):
             landmark.name = "landmark %d" % i
             landmark.collide = False
@@ -48,4 +49,9 @@ class Scenario(BaseScenario):
         entity_pos = []
         for entity in world.landmarks:
             entity_pos.append(entity.state.p_pos - agent.state.p_pos)
-        return np.concatenate([agent.state.p_vel] + entity_pos)
+        entity_color = []
+        for entity in world.landmarks:
+            entity_color.append(entity.color)
+        return np.concatenate(
+            [agent.state.p_vel] + entity_pos + entity_color + [world.landmarks[0].color]
+        )

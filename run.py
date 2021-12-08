@@ -15,7 +15,7 @@ torch.manual_seed(seed=args.seed)  # sets pytorch's seed
 # setup environment
 if args:
     pass
-env = simple_reference_v3.parallel_env(max_cycles=args.episode_len)
+env = simple_v2.parallel_env(max_cycles=args.episode_len)
 num_agents = env.max_num_agents
 
 env = ss.pettingzoo_env_to_vec_env_v1(env)

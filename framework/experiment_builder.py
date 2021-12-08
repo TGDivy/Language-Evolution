@@ -138,6 +138,10 @@ class ExperimentBuilder(nn.Module):
                 actions, (value, move_probs) = self.Policy.action(observation)
 
                 observation, rewards, dones, infos = self.env.step(actions)
+                # for i, _ in enumerate(rewards):
+                #     if rewards[i] < -5:
+                #         rewards[i] = -5
+
                 self.Policy.store(rewards, dones)
 
                 # self.env.render()
