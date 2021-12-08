@@ -5,6 +5,7 @@ from torch import optim
 import os
 from torch.nn import Softmax
 from torch.distributions.categorical import Categorical
+from torch.nn import MSELoss
 from torch.nn import HuberLoss
 from dotmap import DotMap
 from framework.utils.base import base_policy, Args
@@ -109,7 +110,8 @@ class Agent:
 
         self.ppo = PPO(input_shape, num_layers, num_filters)
         self.memory = PPOMemory(input_shape, args.batch_size, args.total_memory)
-        self.huber = HuberLoss(reduction="mean", delta=1.0)
+        # self.huber = HuberLoss(reduction="mean", delta=1.0)
+        self.mse = MSELoss(reduction="mean")
         self.device = self.ppo.device
 
     def remember(
@@ -206,8 +208,8 @@ class Agent:
                 critic_value = T.squeeze(critic_value)
                 returns = adv - values[batch]
 
-                critic_loss = self.huber(critic_value, returns)
-                total_loss += critic_loss * 0.5
+                critic_loss = self.mse(critic_value, returns)
+                total_loss += critic_loss
                 # print(critic_value.cpu().detach().numpy())
                 # print(returns.cpu().detach().numpy())
                 # print(critic_loss)

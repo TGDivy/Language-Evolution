@@ -83,7 +83,7 @@ def get_args():
         "--gae_lambda",
         nargs="?",
         type=float,
-        default=0.95,
+        default=0.90,
         help="gae_lambda",
     )
     parser.add_argument(
