@@ -175,6 +175,7 @@ class FCCNetwork(nn.Module):
         out = out.view(out.shape[0], -1)
 
         self.activation_f = F.tanh
+        self.activation_f = torch.nn.SELU()
 
         for i in range(self.num_layers):
             self.layer_dict["fcc_{}".format(i)] = nn.Linear(
