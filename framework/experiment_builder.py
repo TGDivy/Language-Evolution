@@ -4,18 +4,20 @@ from torch import optim
 import os
 from tqdm import tqdm
 from stable_baselines3.common.vec_env import VecVideoRecorder, DummyVecEnv
+from torch.utils.tensorboard import SummaryWriter
+from torchvision.io import read_video
+from framework.utils.base import base_policy
+import shutil
 
 
 class ExperimentBuilder(nn.Module):
     def __init__(
         self,
         environment,
-        Policy,
+        Policy: base_policy,
         experiment_name,
         n_episodes,
         episode_len,
-        use_gpu,
-        lr,
     ):
         super(ExperimentBuilder, self).__init__()
 
@@ -30,10 +32,13 @@ class ExperimentBuilder(nn.Module):
 
         # Generate the directory names
         self.experiment_folder = os.path.join(
-            experiment_name, os.path.abspath(experiment_name)
+            os.path.abspath("experiments"), experiment_name
         )
         self.experiment_logs = os.path.abspath(
             os.path.join(self.experiment_folder, "result_outputs")
+        )
+        self.experiment_videos = os.path.abspath(
+            os.path.join(self.experiment_folder, "videos")
         )
         self.experiment_saved_models = os.path.abspath(
             os.path.join(self.experiment_folder, "saved_models")
@@ -42,12 +47,17 @@ class ExperimentBuilder(nn.Module):
         self.best_val_model_idx = 0
         self.best_val_model_acc = 0.0
 
-        if not os.path.exists(self.experiment_folder):
-            # If experiment directory does not exist
-            os.mkdir(self.experiment_folder)  # create the experiment directory
-            os.mkdir(self.experiment_logs)  # create the experiment log directory
-            os.mkdir(self.experiment_saved_models)
-            # create the experiment saved models directory
+        if os.path.exists(self.experiment_folder):
+            shutil.rmtree(self.experiment_folder)
+
+        os.mkdir(self.experiment_folder)  # create the experiment directory
+        os.mkdir(self.experiment_logs)  # create the experiment log directory
+        os.mkdir(self.experiment_saved_models)
+        os.mkdir(self.experiment_videos)
+        # create the experiment saved models directory
+
+        self.logger = SummaryWriter(self.experiment_logs)
+        self.Policy.add_logger(self.logger)
 
         self.n_episodes = n_episodes
 
@@ -94,22 +104,27 @@ class ExperimentBuilder(nn.Module):
 
         env = VecVideoRecorder(
             self.env,
-            self.experiment_folder,
+            self.experiment_videos,
             record_video_trigger=lambda x: x == 0,
-            video_length=episode_len * 3,
+            video_length=episode_len * 1,
             name_prefix=f"{self.experiment_name}-{id}",
         )
-        for _ in range(3):
+        for _ in range(2):
             obs = env.reset()
-            done = False
-            actions = []
-
             for i in range(episode_len):
-                act = self.model.predict(obs, deterministic=True)[0]
-                actions.append(str(act))
+                act, _ = self.Policy.action(obs)
                 obs, _, _, _ = env.step(act)
-                time.sleep(0.05)
             env.close()
+
+        path = os.path.join(
+            self.experiment_videos,
+            f"{self.experiment_name}-{id}-step-{0}-to-step-{70}.mp4",
+        )
+        video = read_video(path)
+        v = video[0][None, :]
+        v = v.reshape((1, -1, 3, 1000, 1000))
+        # print(v.shape)
+        self.logger.add_video(f"{self.experiment_name}-{id}", v, fps=30)
 
     def run_experiment(self):
 
@@ -120,14 +135,21 @@ class ExperimentBuilder(nn.Module):
             rewards, dones = 0, False
 
             for step in range(self.episode_len - 1):
-                actions = self.Policy.action(observation)
-                print(actions, observation)
+                actions, (value, move_probs) = self.Policy.action(observation)
 
                 observation, rewards, dones, infos = self.env.step(actions)
                 self.Policy.store(rewards, dones)
 
-                self.env.render()
+                # self.env.render()
                 total_steps += 1
 
-            # reward = sum([reward for reward in rewards.values()])
-            # self.logger.add_scalar("rewards/end_reward", reward, (ep_i + 1))
+                t = (ep_i * (self.episode_len - 1)) + step
+
+                self.logger.add_scalars(
+                    "stats/value_reward", {"value": value, "reward": rewards}, t
+                )
+                self.logger.add_scalar("stats/move_prob", move_probs, t)
+
+            if (ep_i + 1) % 50 == 0:
+                self.save_video(70, ep_i)
+            self.logger.add_scalar("rewards/end_reward", rewards, (ep_i + 1))

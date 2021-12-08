@@ -41,9 +41,9 @@ class PPOMemory:
         n_states = len(self.observations)
         batch_start = np.arange(0, n_states, self.batch_size)
         indices = np.arange(n_states, dtype=np.int64)
-        np.random.shuffle(indices)
+        # np.random.shuffle(indices)
         batches = [indices[i : i + self.batch_size] for i in batch_start]
-
+        # print(batches)
         dic = {
             "observations": self.observations.clone().detach().requires_grad_(True),
             "action": (
@@ -204,10 +204,14 @@ class Agent:
 
                 #### Critic Loss
                 critic_value = T.squeeze(critic_value)
-                returns = advantage[batch] + values[batch]
+                returns = adv - values[batch]
+
                 critic_loss = self.huber(critic_value, returns)
                 total_loss += critic_loss * 0.5
-
+                # print(critic_value.cpu().detach().numpy())
+                # print(returns.cpu().detach().numpy())
+                # print(critic_loss)
+                # print("-" * 50)
                 #### Unit, City Actors Loss
                 for (dist, actions, old_probs) in [
                     (move, actions_move, old_move_probs),

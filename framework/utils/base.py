@@ -6,6 +6,9 @@ class base_policy:
     def __init__(self) -> None:
         pass
 
+    def add_logger(self, logger):
+        self.logger = logger
+
     def action(self, obeservation: dict):
         raise NotImplementedError()
 

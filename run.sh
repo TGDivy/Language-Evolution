@@ -1,1 +1,1 @@
-python run.py --model "ppo"
+python run.py --model "ppo" --experiment_name "PPO-simple-tanh2" --total_memory 10 --episode_len 70 --batch_size 5 --n_episodes 1000 --num_layers 5

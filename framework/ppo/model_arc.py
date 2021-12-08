@@ -35,6 +35,85 @@ class PolicyNetwork(nn.Module):
         self.layer_dict["input_FCC"] = FCCNetwork(
             input_shape=out.shape,
             num_layers=self.num_layers,
+            num_filters=int(self.num_filters / 2),
+        )
+        out = self.layer_dict["input_FCC"].forward(out)
+        print(out.shape, tuple(out.shape))
+        self.layer_dict["action"] = nn.Linear(
+            in_features=out.shape[1],
+            out_features=5,
+            bias=True,
+        )
+        outact = self.layer_dict["action"].forward(out)
+
+        self.layer_dict["comm"] = nn.Linear(
+            in_features=out.shape[1],
+            out_features=10,
+            bias=True,
+        )
+        outcom = self.layer_dict["comm"].forward(out)
+
+        out2 = x
+        self.layer_dict["input_FCCVal"] = FCCNetwork(
+            input_shape=out2.shape,
+            num_layers=self.num_layers,
+            num_filters=self.num_filters,
+        )
+        out2 = self.layer_dict["input_FCCVal"].forward(out2)
+        self.layer_dict["critic"] = nn.Linear(
+            in_features=out2.shape[1],
+            out_features=1,
+            bias=True,
+        )
+        val = self.layer_dict["critic"].forward(out2)
+
+        self.softmax = nn.Softmax(dim=1)
+
+        return outact, outcom, val
+
+    def forward(self, x):
+
+        out = self.layer_dict["input_FCC"].forward(x)
+        move = self.softmax(self.layer_dict["action"].forward(out))
+        communicate = self.softmax(self.layer_dict["comm"].forward(out))
+
+        out2 = self.layer_dict["input_FCCVal"].forward(x)
+        value = self.layer_dict["critic"].forward(out2)
+
+        return move, communicate, value
+
+
+class PolicyNetworkShared(nn.Module):
+    def __init__(self, input_shape, num_layers, num_filters):
+        super(PolicyNetwork, self).__init__()
+        self.input_shape = input_shape
+        self.num_layers = num_layers
+        self.num_filters = num_filters
+
+        self.build_module()
+
+        self.optimizer = optim.Adam(self.parameters(), lr=0.001)
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.to(self.device)
+
+    def build_module(self):
+        """
+        Builds network whilst automatically inferring shapes of layers.
+        """
+        self.layer_dict = nn.ModuleDict()
+        # initialize a module dict, which is effectively a dictionary that can collect layers and integrate them into pytorch
+        print(
+            "Building basic block of ConvolutionalNetwork using input shape",
+            self.input_shape,
+        )
+        x = torch.zeros(
+            (self.input_shape)
+        )  # create dummy inputs to be used to infer shapes of layers
+
+        out = x
+        self.layer_dict["input_FCC"] = FCCNetwork(
+            input_shape=out.shape,
+            num_layers=self.num_layers,
             num_filters=self.num_filters,
         )
         out = self.layer_dict["input_FCC"].forward(out)
@@ -95,6 +174,8 @@ class FCCNetwork(nn.Module):
         out = x
         out = out.view(out.shape[0], -1)
 
+        self.activation_f = F.tanh
+
         for i in range(self.num_layers):
             self.layer_dict["fcc_{}".format(i)] = nn.Linear(
                 in_features=out.shape[1],  # initialize a fcc layer
@@ -103,7 +184,7 @@ class FCCNetwork(nn.Module):
             )
             # apply ith fcc layer to the previous layers outputs
             out = self.layer_dict["fcc_{}".format(i)](out)
-            out = F.relu(out)  # apply a ReLU on the outputs
+            out = self.activation_f(out)  # apply a ReLU on the outputs
 
         print("Block is built, output volume is", out.shape)
         return out
@@ -120,7 +201,7 @@ class FCCNetwork(nn.Module):
         for i in range(self.num_layers):
             out = self.layer_dict["fcc_{}".format(i)](out)
             # apply ith fcc layer to the previous layers outputs
-            out = F.relu(out)  # apply a ReLU on the outputs
+            out = self.activation_f(out)  # apply a ReLU on the outputs
 
         return out
 

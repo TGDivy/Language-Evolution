@@ -1,6 +1,8 @@
+import numpy as np
 from framework.utils.base import base_policy
 from framework.ppo.ppo import Agent
 import torch as T
+from torch.utils.tensorboard import SummaryWriter
 
 
 class ppo_policy(base_policy):
@@ -14,10 +16,8 @@ class ppo_policy(base_policy):
 
         self.to_remember = {}
 
-        # self.added_graph = False
-        # if not self.added_graph:
-        #     self.logger.add_graph(self.agent1.ppo, obs_batch)
-        #     self.added_graph = True
+    def add_logger(self, logger: SummaryWriter):
+        self.logger = logger
 
     def action(self, observations):
 
@@ -26,7 +26,7 @@ class ppo_policy(base_policy):
 
             obs = observations[i]
 
-            obs_batch = T.tensor([obs], dtype=T.float, device="cuda")
+            obs_batch = T.tensor(np.array([obs]), dtype=T.float, device="cuda")
 
             (
                 move_probs,
@@ -46,7 +46,7 @@ class ppo_policy(base_policy):
             )
             actions.append(move_action.item())
 
-        return actions
+        return actions, (value, move_probs)
 
     def store(self, rewards, dones):
 

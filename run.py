@@ -15,7 +15,7 @@ torch.manual_seed(seed=args.seed)  # sets pytorch's seed
 # setup environment
 if args:
     pass
-env = simple_v2.parallel_env(max_cycles=80)
+env = simple_v2.parallel_env(max_cycles=args.episode_len)
 num_agents = env.max_num_agents
 
 env = ss.pettingzoo_env_to_vec_env_v1(env)
@@ -33,7 +33,5 @@ exp = ExperimentBuilder(
     experiment_name=args.experiment_name,
     n_episodes=args.n_episodes,
     episode_len=args.episode_len,
-    use_gpu=True,
-    lr=args.lr,
 )
 exp.run_experiment()
