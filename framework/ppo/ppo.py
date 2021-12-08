@@ -12,23 +12,6 @@ from framework.utils.base import base_policy, Args
 from pettingzoo import ParallelEnv
 from framework.ppo.model_arc import PolicyNetwork as PPO
 
-args = {
-    # exerpiment details
-    "chkpt_dir": "tmp/ppo",
-    "log_dir": "run/simple_ppo/",
-    # PPO memory
-    "total_memory": 25,
-    "batch_size": 5,
-    # learning hyper parameters actor critic models
-    "n_epochs": 3,
-    "alpha": 1e-4,
-    "gamma": 0.99,
-    "gae_lambda": 0.95,
-    "policy_clip": 0.2,
-    "entropy": 0.01,
-    "seed": 7000,
-}
-
 
 class PPOMemory:
     def __init__(self, input_size, batch_size, total_memory):
@@ -42,7 +25,7 @@ class PPOMemory:
         n_states = len(self.observations)
         batch_start = np.arange(0, n_states, self.batch_size)
         indices = np.arange(n_states, dtype=np.int64)
-        # np.random.shuffle(indices)
+        np.random.shuffle(indices)
         batches = [indices[i : i + self.batch_size] for i in batch_start]
         # print(batches)
         dic = {
@@ -161,7 +144,7 @@ class Agent:
     def advantage(self, reward_arr, values, dones_arr):
         advantage = np.zeros(len(reward_arr), dtype=np.float16)
         for t in range(len(reward_arr) - 1):
-            discount = 1
+            discount = 0.99
             a_t = 0
             for k in range(t, len(reward_arr) - 1):
                 a_t += discount * (
@@ -209,7 +192,7 @@ class Agent:
                 returns = adv - values[batch]
 
                 critic_loss = self.mse(critic_value, returns)
-                total_loss += critic_loss
+                total_loss += critic_loss * 0.5
                 # print(critic_value.cpu().detach().numpy())
                 # print(returns.cpu().detach().numpy())
                 # print(critic_loss)

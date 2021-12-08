@@ -13,7 +13,7 @@ class PolicyNetwork(nn.Module):
 
         self.build_module()
 
-        self.optimizer = optim.Adam(self.parameters(), lr=0.001)
+        self.optimizer = optim.Adam(self.parameters(), lr=1e-4)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
 

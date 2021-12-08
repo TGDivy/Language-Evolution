@@ -150,6 +150,6 @@ class ExperimentBuilder(nn.Module):
                 )
                 self.logger.add_scalar("stats/move_prob", move_probs, t)
 
-            if (ep_i + 1) % 50 == 0:
+            if (ep_i + 1) % 100 == 0:
                 self.save_video(70, ep_i)
             self.logger.add_scalar("rewards/end_reward", rewards, (ep_i + 1))
