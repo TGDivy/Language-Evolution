@@ -200,7 +200,7 @@ class Agent:
                 #### Unit, City Actors Loss
                 for (dist, actions, old_probs) in [
                     (move, actions_move, old_move_probs),
-                    # (communicate, actions_communicate, old_communicate_probs),
+                    (communicate, actions_communicate, old_communicate_probs),
                 ]:
                     dist = Categorical(dist)
                     new_probs = dist.log_prob(actions)

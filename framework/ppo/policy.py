@@ -44,7 +44,13 @@ class ppo_policy(base_policy):
                 communicate_probs,
                 value,
             )
-            actions.append(move_action.item())
+            if self.args.communicate:
+                action = (
+                    move_action.item() * communicate_action.item() + move_action.item()
+                )
+            else:
+                action = move_action.item()
+            actions.append(action)
 
         return actions, (value, move_probs)
 

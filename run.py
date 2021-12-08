@@ -2,7 +2,7 @@ from framework.experiment_builder import ExperimentBuilder
 from framework.utils.arg_extractor import get_args
 import numpy as np
 import torch
-from pettingzoo.mpe import simple_v2  # simple_reference_v2, simple_reference_v3
+from pettingzoo.mpe import simple_v2, simple_reference_v2, simple_reference_v3
 import supersuit as ss
 from framework.ppo.policy import ppo_policy
 
@@ -15,7 +15,7 @@ torch.manual_seed(seed=args.seed)  # sets pytorch's seed
 # setup environment
 if args:
     pass
-env = simple_v2.parallel_env(max_cycles=args.episode_len)
+env = simple_reference_v3.parallel_env(max_cycles=args.episode_len)
 num_agents = env.max_num_agents
 
 env = ss.pettingzoo_env_to_vec_env_v1(env)

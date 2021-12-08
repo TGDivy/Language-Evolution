@@ -146,10 +146,10 @@ class ExperimentBuilder(nn.Module):
                 t = (ep_i * (self.episode_len - 1)) + step
 
                 self.logger.add_scalars(
-                    "stats/value_reward", {"value": value, "reward": rewards}, t
+                    "stats/value_reward", {"value": value[0], "reward": rewards[0]}, t
                 )
                 self.logger.add_scalar("stats/move_prob", move_probs, t)
 
             if (ep_i + 1) % 100 == 0:
                 self.save_video(70, ep_i)
-            self.logger.add_scalar("rewards/end_reward", rewards, (ep_i + 1))
+            self.logger.add_scalar("rewards/end_reward", rewards[0], (ep_i + 1))

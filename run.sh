@@ -1,1 +1,1 @@
-python run.py --model "ppo" --experiment_name "PPO-simple-SELU" --total_memory 10 --episode_len 70 --batch_size 2 --n_episodes 1000 --num_layers 3 --num_filters 128
+python run.py --model "ppo" --experiment_name "PPO-reference-comm" --total_memory 10 --episode_len 70 --batch_size 2 --n_episodes 1000 --num_layers 3 --num_filters 128 --communicate true
