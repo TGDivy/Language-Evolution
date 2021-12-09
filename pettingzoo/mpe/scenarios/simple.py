@@ -48,10 +48,12 @@ class Scenario(BaseScenario):
         # get positions of all entities in this agent's reference frame
         entity_pos = []
         for entity in world.landmarks:
+            # entity_pos.append(entity.state.p_pos)
             entity_pos.append(entity.state.p_pos - agent.state.p_pos)
         entity_color = []
         for entity in world.landmarks:
             entity_color.append(entity.color)
         return np.concatenate(
-            [agent.state.p_vel] + entity_pos + entity_color + [world.landmarks[0].color]
+            [agent.state.p_vel]
+            + entity_pos  # + entity_color + [world.landmarks[0].color]
         )

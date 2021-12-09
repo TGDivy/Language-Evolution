@@ -99,9 +99,10 @@ class ExperimentBuilder(nn.Module):
     def logging(self):
         pass
 
-    def save_video(self, episode_len, id):
+    def save_video(self, id):
         import time
 
+        episode_len = self.episode_len
         env = VecVideoRecorder(
             self.env,
             self.experiment_videos,
@@ -116,15 +117,15 @@ class ExperimentBuilder(nn.Module):
                 obs, _, _, _ = env.step(act)
             env.close()
 
-        path = os.path.join(
-            self.experiment_videos,
-            f"{self.experiment_name}-{id}-step-{0}-to-step-{70}.mp4",
-        )
-        video = read_video(path)
-        v = video[0][None, :]
-        v = v.reshape((1, -1, 3, 1000, 1000))
-        # print(v.shape)
-        self.logger.add_video(f"{self.experiment_name}-{id}", v, fps=30)
+        # path = os.path.join(
+        #     self.experiment_videos,
+        #     f"{self.experiment_name}-{id}-step-{0}-to-step-{episode_len}.mp4",
+        # )
+        # video = read_video(path)
+        # v = video[0][None, :]
+        # v = v.reshape((1, -1, 3, 1000, 1000))
+        # # print(v.shape)
+        # self.logger.add_video(f"{self.experiment_name}-{id}", v, fps=30)
 
     def run_experiment(self):
 
@@ -141,6 +142,9 @@ class ExperimentBuilder(nn.Module):
                 # for i, _ in enumerate(rewards):
                 #     if rewards[i] < -5:
                 #         rewards[i] = -5
+                # for i, _ in enumerate(rewards):
+                #     if rewards[i]>=10:
+                #         rewards = np.zeros(rewards)
 
                 self.Policy.store(rewards, dones)
 
@@ -154,6 +158,6 @@ class ExperimentBuilder(nn.Module):
                 )
                 self.logger.add_scalar("stats/move_prob", move_probs, t)
 
-            if (ep_i + 1) % 100 == 0:
-                self.save_video(70, ep_i)
+            if (ep_i + 1) % 250 == 0:
+                self.save_video(ep_i)
             self.logger.add_scalar("rewards/end_reward", rewards[0], (ep_i + 1))

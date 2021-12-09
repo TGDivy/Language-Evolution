@@ -193,18 +193,15 @@ class Agent:
 
                 critic_loss = self.mse(critic_value, returns)
                 total_loss += critic_loss * 0.5
-                # print(critic_value.cpu().detach().numpy())
-                # print(returns.cpu().detach().numpy())
-                # print(critic_loss)
-                # print("-" * 50)
+
                 #### Unit, City Actors Loss
                 for (dist, actions, old_probs) in [
                     (move, actions_move, old_move_probs),
-                    (communicate, actions_communicate, old_communicate_probs),
+                    # (communicate, actions_communicate, old_communicate_probs),
                 ]:
                     dist = Categorical(dist)
                     new_probs = dist.log_prob(actions)
-                    prob_ratio = new_probs.exp() / old_probs.exp()
+                    prob_ratio = (new_probs - old_probs).exp()
 
                     weighted_probs = prob_ratio * adv.reshape(-1, 1)
                     weighted_clipped_probs = T.clamp(

@@ -1,1 +1,1 @@
-python run.py --model "ppo" --experiment_name "PPO-simple3" --total_memory 10 --episode_len 70 --batch_size 2 --n_episodes 1000 --num_layers 3 --num_filters 128 --communicate 1
+python run.py --model "ppo" --experiment_name "PPO-simple3" --total_memory 12 --episode_len 72 --batch_size 4 --n_episodes 2000 --num_layers 3 --num_filters 128 --communicate 0 --n_epochs 3

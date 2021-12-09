@@ -97,7 +97,7 @@ class World:  # multi-agent world
         # simulation timestep
         self.dt = 0.1
         # physical damping
-        self.damping = 0.25
+        self.damping = 0.25  # default 0.25
         # contact response parameters
         self.contact_force = 1e2
         self.contact_margin = 1e-3
