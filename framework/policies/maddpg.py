@@ -54,7 +54,9 @@ class maddpg_policy(base_policy):
             obs_list_to_state_vector(observation),
             actions,
         )
-        actions = [T.distributions.Categorical(a).sample() for a in actions]
+        actions = [
+            T.distributions.Categorical(T.tensor(a)).sample().item() for a in actions
+        ]
         # print(actions)
         return actions, ([0], 0)
 
