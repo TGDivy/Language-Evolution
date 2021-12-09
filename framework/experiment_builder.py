@@ -136,27 +136,22 @@ class ExperimentBuilder(nn.Module):
             rewards, dones = 0, False
 
             for step in range(self.episode_len - 1):
+
                 actions, (value, move_probs) = self.Policy.action(observation)
 
                 observation, rewards, dones, infos = self.env.step(actions)
-                # for i, _ in enumerate(rewards):
-                #     if rewards[i] < -5:
-                #         rewards[i] = -5
-                # for i, _ in enumerate(rewards):
-                #     if rewards[i]>=10:
-                #         rewards = np.zeros(rewards)
 
-                self.Policy.store(rewards, dones)
+                self.Policy.store(total_steps, observation, rewards, dones)
 
                 # self.env.render()
                 total_steps += 1
 
-                t = (ep_i * (self.episode_len - 1)) + step
-
                 self.logger.add_scalars(
-                    "stats/value_reward", {"value": value[0], "reward": rewards[0]}, t
+                    "stats/value_reward",
+                    {"value": value[0], "reward": rewards[0]},
+                    total_steps,
                 )
-                self.logger.add_scalar("stats/move_prob", move_probs, t)
+                self.logger.add_scalar("stats/move_prob", move_probs, total_steps)
 
             if (ep_i + 1) % 250 == 0:
                 self.save_video(ep_i)

@@ -12,7 +12,7 @@ class base_policy:
     def action(self, obeservation: dict):
         raise NotImplementedError()
 
-    def store(self, rewards, dones):
+    def store(self, total_steps, obs, rewards, dones):
         pass
 
 

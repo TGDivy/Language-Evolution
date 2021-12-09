@@ -76,6 +76,13 @@ def get_args():
         default=10,
         help="num_filters",
     )
+    parser.add_argument(
+        "--device",
+        nargs="?",
+        type=str,
+        default="cuda",
+        help="num_filters",
+    )
     parser.add_argument("--alpha", nargs="?", type=float, default=1e-4, help="alpha")
     parser.add_argument("--gamma", nargs="?", type=float, default=0.99, help="gamma")
 
@@ -101,7 +108,7 @@ def get_args():
         "--lr",
         nargs="?",
         type=float,
-        default=1e-3,
+        default=1e-4,
         help="lr",
     )
     parser.add_argument(

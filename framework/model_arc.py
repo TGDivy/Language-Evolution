@@ -69,8 +69,8 @@ class ACNetwork(nn.Module):
         act = self.layer_dict["actor"].forward(x)
         act = self.softmax(self.layer_dict["action"].forward(act))
 
-        val = self.layer_dict["input_FCCVal"].forward(x)
-        val = self.layer_dict["critic"].forward(val)
+        val = self.layer_dict["critic"].forward(x)
+        val = self.layer_dict["value"].forward(val)
 
         return act, val
 
