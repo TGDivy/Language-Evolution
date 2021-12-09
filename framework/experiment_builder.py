@@ -85,24 +85,31 @@ class ExperimentBuilder(nn.Module):
             self.env,
             self.experiment_videos,
             record_video_trigger=lambda x: x == 0,
-            video_length=episode_len * 1,
+            video_length=episode_len - 1,
             name_prefix=f"{self.experiment_name}-{id}",
         )
-        for _ in range(2):
+        N = 2
+        for _ in range(N):
             obs = env.reset()
-            for i in range(episode_len):
+            for i in range(episode_len - 1):
                 act, _ = self.Policy.action(obs)
                 obs, _, _, _ = env.step(act)
-            env.close()
+        env.close()
 
-        path = os.path.join(
-            self.experiment_videos,
-            f"{self.experiment_name}-{id}-step-{0}-to-step-{episode_len}.mp4",
-        )
-        video = read_video(path)
-        v = video[0][None, :]
+        videos = []
+        for i in range(N):
+            start = i * (episode_len - 1)
+            end = (i + 1) * (episode_len - 1)
+            path = os.path.join(
+                self.experiment_videos,
+                f"{self.experiment_name}-{id}-step-{start}-to-step-{end}.mp4",
+            )
+            video = read_video(path)
+            v = video[0][None, :]
+            videos.append(v)
 
-        self.logger.add_video(f"{self.experiment_name}-{id}", v, fps=30)
+        videos = torch.concat(videos)
+        self.logger.add_video(f"{self.experiment_name}-{id}", videos, fps=10)
 
     def run_experiment(self):
 

@@ -39,7 +39,7 @@ os.mkdir(experiment_videos)
 logger = SummaryWriter(experiment_logs)
 
 print(vars(args))
-logger.add_hparams(vars(args), {"hparams/accuracy": 0})
+logger.add_hparams(vars(args), {"rewards/end_reward": 0})
 
 # set seeds
 rng = np.random.RandomState(seed=args.seed)  # set the seeds for the experiment
