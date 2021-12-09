@@ -13,7 +13,7 @@ class Scenario(BaseScenario):
         for i, agent in enumerate(world.agents):
             agent.name = f"agent_{i}"
             agent.collide = False
-            agent.silent = True
+            agent.silent = False
         # add landmarks
         world.landmarks = [Landmark() for i in range(3)]
         for i, landmark in enumerate(world.landmarks):

@@ -15,13 +15,14 @@ class ExperimentBuilder(nn.Module):
         self,
         environment,
         Policy: base_policy,
-        experiment_name,
+        logfolder,
+        videofolder,
         n_episodes,
         episode_len,
+        logger: SummaryWriter,
     ):
         super(ExperimentBuilder, self).__init__()
 
-        self.experiment_name = experiment_name
         self.Policy = Policy
 
         self.env = environment
@@ -30,35 +31,10 @@ class ExperimentBuilder(nn.Module):
         for name, value in self.named_parameters():
             print(name, value.shape)
 
-        # Generate the directory names
-        self.experiment_folder = os.path.join(
-            os.path.abspath("experiments"), experiment_name
-        )
-        self.experiment_logs = os.path.abspath(
-            os.path.join(self.experiment_folder, "result_outputs")
-        )
-        self.experiment_videos = os.path.abspath(
-            os.path.join(self.experiment_folder, "videos")
-        )
-        self.experiment_saved_models = os.path.abspath(
-            os.path.join(self.experiment_folder, "saved_models")
-        )
+        self.experiment_logs = logfolder
+        self.experiment_videos = videofolder
 
-        self.best_val_model_idx = 0
-        self.best_val_model_acc = 0.0
-
-        if os.path.exists(self.experiment_folder):
-            shutil.rmtree(self.experiment_folder)
-
-        os.mkdir(self.experiment_folder)  # create the experiment directory
-        os.mkdir(self.experiment_logs)  # create the experiment log directory
-        os.mkdir(self.experiment_saved_models)
-        os.mkdir(self.experiment_videos)
-        # create the experiment saved models directory
-
-        self.logger = SummaryWriter(self.experiment_logs)
-        self.Policy.add_logger(self.logger)
-
+        self.logger = logger
         self.n_episodes = n_episodes
 
     def save_model(self, model_save_dir, model_save_name, index):
@@ -153,6 +129,6 @@ class ExperimentBuilder(nn.Module):
                 )
                 self.logger.add_scalar("stats/move_prob", move_probs, total_steps)
 
-            if (ep_i + 1) % 250 == 0:
+            if (ep_i + 1) % 1000 == 0:
                 self.save_video(ep_i)
             self.logger.add_scalar("rewards/end_reward", rewards[0], (ep_i + 1))

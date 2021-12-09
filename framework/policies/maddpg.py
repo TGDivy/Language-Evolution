@@ -54,7 +54,7 @@ class maddpg_policy(base_policy):
             obs_list_to_state_vector(observation),
             actions,
         )
-        actions = [np.argmax(a) for a in actions]
+        actions = [T.distributions.Categorical(a).sample() for a in actions]
         # print(actions)
         return actions, ([0], 0)
 
@@ -208,8 +208,8 @@ class Agent:
         # print(observation)
         # print(T.tensor(observation, dtype=T.float))
         actions = self.actor.forward(observation)
-        noise = T.rand(self.n_actions).to(self.actor.device) / 50
-        action = actions + noise
+        # noise = T.rand(self.n_actions).to(self.actor.device) / self.n_actions * 2
+        action = actions  # + noise
 
         return action.detach().cpu().numpy()[0]
 
@@ -393,7 +393,8 @@ class MADDPG:
     def choose_action(self, raw_obs):
         actions = []
         for agent_idx, agent in enumerate(self.agents):
-            action = agent.choose_action(raw_obs[agent_idx])
+            # print(raw_obs.shape)
+            action = agent.choose_action(raw_obs[:, agent_idx, :])
             actions.append(action)
         return actions
 
@@ -439,6 +440,9 @@ class MADDPG:
         old_actions = T.cat([acts for acts in old_agents_actions], dim=1)
 
         for agent_idx, agent in enumerate(self.agents):
+            agent.actor.optimizer.zero_grad()
+
+        for agent_idx, agent in enumerate(self.agents):
             critic_value_ = agent.target_critic.forward(states_, new_actions).flatten()
             critic_value_[dones[:, 0]] = 0.0
             critic_value = agent.critic.forward(states, old_actions).flatten()
@@ -451,8 +455,8 @@ class MADDPG:
 
             actor_loss = agent.critic.forward(states, mu).flatten()
             actor_loss = -T.mean(actor_loss)
-            agent.actor.optimizer.zero_grad()
             actor_loss.backward(retain_graph=True)
-            agent.actor.optimizer.step()
 
+        for agent_idx, agent in enumerate(self.agents):
+            agent.actor.optimizer.step()
             agent.update_network_parameters()
