@@ -20,9 +20,8 @@ from torch.utils.tensorboard import SummaryWriter
 args = get_args()  # get arguments from command line
 
 # Generate the directory names
-experiment_folder = os.path.join(
-    os.path.abspath("experiments"), f"{args.experiment_name}-{args.env}"
-)
+experiment_name = f"{args.model}-{args.env}-{args.experiment_name}"
+experiment_folder = os.path.join(os.path.abspath("experiments"), experiment_name)
 experiment_logs = os.path.abspath(os.path.join(experiment_folder, "result_outputs"))
 experiment_videos = os.path.abspath(os.path.join(experiment_folder, "videos"))
 experiment_saved_models = os.path.abspath(
@@ -38,6 +37,9 @@ os.mkdir(experiment_saved_models)
 os.mkdir(experiment_videos)
 
 logger = SummaryWriter(experiment_logs)
+
+print(vars(args))
+logger.add_hparams(vars(args), {"hparams/accuracy": 0})
 
 # set seeds
 rng = np.random.RandomState(seed=args.seed)  # set the seeds for the experiment
@@ -56,27 +58,32 @@ elif args.env == "adversary":
 num_agents = env.max_num_agents
 # print(env.action_spaces)
 action_space = env.action_spaces["agent_0"].n
+env = ss.pad_observations_v0(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
 # env = ss.concat_vec_envs_v0(game, 10, num_cpus=5, base_class='stable_baselines3')
 obs = env.reset()
 
 if args.model == "ppo":
-    Policy = maddpg_policy(
-        args,
-        num_agents,
-        action_space,
-        obs.shape,
-        args.num_layers,
-        args.num_filters,
-        args.lr,
-        args.device,
-    )
+    Policy = ppo_policy
+elif args.model == "maddpg":
+    Policy = maddpg_policy
 else:
     pass
+Policy = Policy(
+    args,
+    num_agents,
+    action_space,
+    obs.shape,
+    args.num_layers,
+    args.num_filters,
+    args.lr,
+    args.device,
+)
 
 exp = ExperimentBuilder(
     environment=env,
     Policy=Policy,
+    experiment_name=experiment_name,
     logfolder=experiment_videos,
     videofolder=experiment_videos,
     n_episodes=args.n_episodes,

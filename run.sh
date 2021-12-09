@@ -1,1 +1,1 @@
-python run.py --model "ppo" --env "adversary" --experiment_name "MADDPG-adversary" --total_memory 12 --episode_len 25 --batch_size 4 --n_episodes 50000 --num_layers 3 --num_filters 128 --communicate 0 --n_epochs 3
+python run.py --model "ppo" --env "adversary" --experiment_name "v0" --total_memory 12 --episode_len 25 --batch_size 4 --n_episodes 200 --num_layers 3 --num_filters 128 --communicate 0 --n_epochs 3

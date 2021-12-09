@@ -66,7 +66,7 @@ class ppo_policy(base_policy):
 
         return actions, (value, action_p)
 
-    def store(self, rewards, dones):
+    def store(self, total_steps, obs, rewards, dones):
 
         for i, agent in enumerate(self.agents):
             agent.remember(

@@ -15,6 +15,7 @@ class ExperimentBuilder(nn.Module):
         self,
         environment,
         Policy: base_policy,
+        experiment_name,
         logfolder,
         videofolder,
         n_episodes,
@@ -31,6 +32,7 @@ class ExperimentBuilder(nn.Module):
         for name, value in self.named_parameters():
             print(name, value.shape)
 
+        self.experiment_name = experiment_name
         self.experiment_logs = logfolder
         self.experiment_videos = videofolder
 
@@ -93,15 +95,14 @@ class ExperimentBuilder(nn.Module):
                 obs, _, _, _ = env.step(act)
             env.close()
 
-        # path = os.path.join(
-        #     self.experiment_videos,
-        #     f"{self.experiment_name}-{id}-step-{0}-to-step-{episode_len}.mp4",
-        # )
-        # video = read_video(path)
-        # v = video[0][None, :]
-        # v = v.reshape((1, -1, 3, 1000, 1000))
-        # # print(v.shape)
-        # self.logger.add_video(f"{self.experiment_name}-{id}", v, fps=30)
+        path = os.path.join(
+            self.experiment_videos,
+            f"{self.experiment_name}-{id}-step-{0}-to-step-{episode_len}.mp4",
+        )
+        video = read_video(path)
+        v = video[0][None, :]
+
+        self.logger.add_video(f"{self.experiment_name}-{id}", v, fps=30)
 
     def run_experiment(self):
 
@@ -129,6 +130,8 @@ class ExperimentBuilder(nn.Module):
                 )
                 self.logger.add_scalar("stats/move_prob", move_probs, total_steps)
 
-            if (ep_i + 1) % 1000 == 0:
+            if (ep_i + 1) % (self.n_episodes // 10) == 0:
                 self.save_video(ep_i)
             self.logger.add_scalar("rewards/end_reward", rewards[0], (ep_i + 1))
+
+        self.save_video("final")
