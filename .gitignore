@@ -9,5 +9,5 @@ run/
 pettingzoo/mpe/_mpe_utils/__pycache__/core.cpython-39.pyc
 *.mp4
 *.json
-events.*
+*events.out.tfevents*
 experiments/maddpg-spread-v0/result_outputs/events.out.tfevents.1639078890.pop-os.367329.0
