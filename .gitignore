@@ -9,4 +9,4 @@ run/
 pettingzoo/mpe/_mpe_utils/__pycache__/core.cpython-39.pyc
 *.mp4
 *.json
-*.tfevents*.
+.*tfevents.*
