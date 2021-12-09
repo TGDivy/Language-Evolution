@@ -10,7 +10,76 @@ from torch.nn import HuberLoss
 from dotmap import DotMap
 from framework.utils.base import base_policy, Args
 from pettingzoo import ParallelEnv
-from framework.ppo.model_arc import PolicyNetwork as PPO
+from model_arc import PolicyNetwork as PPO
+from framework.utils.base import base_policy
+from torch.utils.tensorboard import SummaryWriter
+
+
+class ppo_policy(base_policy):
+    def __init__(self, args, n_agents, input_shape, num_layers, num_filters) -> None:
+        self.args = args
+
+        self.agents = []
+        for _ in range(n_agents):
+            agent = Agent(args, input_shape, num_layers, num_filters)
+            self.agents.append(agent)
+
+        self.to_remember = {}
+
+    def add_logger(self, logger: SummaryWriter):
+        self.logger = logger
+
+    def action(self, observations):
+
+        actions = []
+        for i, agent in enumerate(self.agents):
+
+            obs = observations[i]
+
+            obs_batch = T.tensor(np.array([obs]), dtype=T.float, device="cuda")
+
+            (
+                move_probs,
+                communicate_probs,
+                move_action,
+                communicate_action,
+                value,
+            ) = agent.choose_action(obs_batch)
+
+            self.to_remember[i] = (
+                obs_batch,
+                move_action,
+                move_probs,
+                communicate_action,
+                communicate_probs,
+                value,
+            )
+            if self.args.communicate:
+                action = (
+                    move_action.item() * communicate_action.item() + move_action.item()
+                )
+            else:
+                action = move_action.item()
+            actions.append(action)
+
+        return actions, (value, move_probs)
+
+    def store(self, rewards, dones):
+
+        for i, agent in enumerate(self.agents):
+            agent.remember(
+                self.to_remember[i][0],
+                self.to_remember[i][1],
+                self.to_remember[i][2],
+                self.to_remember[i][3],
+                self.to_remember[i][4],
+                self.to_remember[i][5],
+                T.tensor(rewards[i]),
+                dones[i],
+            )
+
+            if agent.memory.counter == self.args.total_memory:
+                agent.learn()
 
 
 class PPOMemory:
@@ -218,63 +287,3 @@ class Agent:
                 self.ppo.optimizer.zero_grad()
 
         self.memory.clear_memory()
-
-
-class policy(base_policy):
-    def __init__(self, args: Args) -> None:
-        self.args = args
-        self.agent1 = Agent(self.args)
-        self.agent_name = "agent_0"
-        self.to_remember = {}
-        self.logger = args.logger
-
-        self.added_graph = False
-
-    def action(self, observations):
-        obs = observations[self.agent_name]
-
-        obs_batch = T.tensor([obs], dtype=T.float)
-
-        (
-            move_probs,
-            communicate_probs,
-            move_action,
-            communicate_action,
-            value,
-        ) = self.agent1.choose_action(obs_batch)
-
-        if not self.added_graph:
-            self.logger.add_graph(self.agent1.ppo, obs_batch)
-            self.added_graph = True
-
-        self.to_remember[self.agent_name] = (
-            obs_batch,
-            move_action,
-            move_probs,
-            communicate_action,
-            communicate_probs,
-            value,
-        )
-
-        actions = {}
-
-        actions[self.agent_name] = move_action.item()
-        print(move_action.item())
-
-        return actions
-
-    def store(self, rewards, dones):
-
-        self.agent1.remember(
-            self.to_remember[self.agent_name][0],
-            self.to_remember[self.agent_name][1],
-            self.to_remember[self.agent_name][2],
-            self.to_remember[self.agent_name][3],
-            self.to_remember[self.agent_name][4],
-            self.to_remember[self.agent_name][5],
-            rewards[self.agent_name],
-            dones[self.agent_name],
-        )
-
-        if self.agent1.memory.counter == self.args.total_memory:
-            self.agent1.learn()

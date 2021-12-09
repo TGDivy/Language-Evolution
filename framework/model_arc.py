@@ -4,6 +4,77 @@ import torch.nn.functional as F
 from torch import optim
 
 
+class ACNetwork(nn.Module):
+    def __init__(
+        self, action_space, input_shape, num_layers, num_filters, device: str, lr
+    ):
+        super(ACNetwork, self).__init__()
+        self.input_shape = input_shape
+        self.num_layers = num_layers
+        self.num_filters = num_filters
+        self.action_space = action_space
+
+        self.build_module()
+
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
+        self.device = torch.device(device)
+        self.to(self.device)
+
+    def build_module(self):
+        """
+        Builds network whilst automatically inferring shapes of layers.
+        """
+        self.layer_dict = nn.ModuleDict()
+        # initialize a module dict, which is effectively a dictionary that can collect layers and integrate them into pytorch
+        print("Building actor network for input:", self.input_shape)
+
+        # create dummy inputs to be used to infer shapes of layers
+        x = torch.zeros(self.input_shape)
+
+        outact = x
+        self.layer_dict["actor"] = FCCNetwork(
+            input_shape=outact.shape,
+            num_layers=self.num_layers,
+            num_filters=int(self.num_filters / 2),
+        )
+        outact = self.layer_dict["actor"].forward(outact)
+
+        self.layer_dict["action"] = nn.Linear(
+            in_features=outact.shape[1],
+            out_features=self.action_space,
+            bias=True,
+        )
+        outact = self.layer_dict["action"].forward(outact)
+
+        outval = x
+        self.layer_dict["critic"] = FCCNetwork(
+            input_shape=outval.shape,
+            num_layers=self.num_layers,
+            num_filters=self.num_filters,
+        )
+        outval = self.layer_dict["critic"].forward(outval)
+        self.layer_dict["value"] = nn.Linear(
+            in_features=outval.shape[1],
+            out_features=1,
+            bias=True,
+        )
+        outval = self.layer_dict["value"].forward(outval)
+
+        self.softmax = nn.Softmax(dim=1)
+
+        return outact, outval
+
+    def forward(self, x):
+
+        act = self.layer_dict["actor"].forward(x)
+        act = self.softmax(self.layer_dict["action"].forward(act))
+
+        val = self.layer_dict["input_FCCVal"].forward(x)
+        val = self.layer_dict["critic"].forward(val)
+
+        return act, val
+
+
 class PolicyNetwork(nn.Module):
     def __init__(self, input_shape, num_layers, num_filters):
         super(PolicyNetwork, self).__init__()
