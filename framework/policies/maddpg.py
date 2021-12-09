@@ -28,11 +28,12 @@ class maddpg_policy(base_policy):
             actor_dims.append(input_shape[1])
         critic_dims = sum(actor_dims)
 
+        print(action_space)
         self.maddpg_agents = MADDPG(
             actor_dims,
             critic_dims,
             n_agents,
-            action_space,
+            action_space[0],
             fc1=64,
             fc2=64,
             alpha=0.01,
@@ -41,7 +42,7 @@ class maddpg_policy(base_policy):
         )
 
         self.memory = MultiAgentReplayBuffer(
-            1000000, critic_dims, actor_dims, action_space, n_agents, batch_size=1024
+            1000000, critic_dims, actor_dims, action_space[0], n_agents, batch_size=1024
         )
 
     def action(self, observation, evaluate=False):
@@ -55,7 +56,7 @@ class maddpg_policy(base_policy):
             actions,
         )
         # print(actions)
-        actions = [np.argmax(a) for a in actions]
+        # actions = [np.argmax(a) for a in actions]
         # print(actions)
         return actions, ([0], 0)
 
@@ -90,9 +91,13 @@ class CriticNetwork(nn.Module):
 
         self.chkpt_file = os.path.join(chkpt_dir, name)
 
-        self.fc1 = nn.Linear(input_dims + n_agents * n_actions, fc1_dims)
-        self.fc2 = nn.Linear(fc1_dims, fc2_dims)
-        self.q = nn.Linear(fc2_dims, 1)
+        self.fc1 = nn.Linear(input_dims + n_agents * n_actions, fc2_dims)
+        self.fc2 = nn.Linear(fc2_dims, fc2_dims)
+        self.fc3 = nn.Linear(fc2_dims, fc2_dims)
+        self.pi = nn.Linear(fc2_dims, 1)
+        # self.activation = T.nn.SELU()
+        self.activation = T.nn.ReLU()
+        # self.activation = T.nn.Tanh()
 
         self.optimizer = optim.Adam(self.parameters(), lr=beta)
         self.device = T.device("cuda:0" if T.cuda.is_available() else "cpu")
@@ -100,9 +105,11 @@ class CriticNetwork(nn.Module):
         self.to(self.device)
 
     def forward(self, state, action):
-        x = F.relu(self.fc1(T.cat([state, action], dim=1)))
-        x = F.relu(self.fc2(x))
-        q = self.q(x)
+        x = T.cat([state, action], dim=1)
+        x = self.activation(self.fc1(x))
+        # x = self.activation(self.fc2(x))
+        x = self.activation(self.fc3(x))
+        q = self.pi(x)
 
         return q
 
@@ -122,17 +129,24 @@ class ActorNetwork(nn.Module):
         self.chkpt_file = os.path.join(chkpt_dir, name)
 
         self.fc1 = nn.Linear(input_dims, fc1_dims)
-        self.fc2 = nn.Linear(fc1_dims, fc2_dims)
-        self.pi = nn.Linear(fc2_dims, n_actions)
+        self.fc2 = nn.Linear(fc1_dims, fc1_dims)
+        self.fc3 = nn.Linear(fc1_dims, fc1_dims)
+        self.pi = nn.Linear(fc1_dims, n_actions)
 
         self.optimizer = optim.Adam(self.parameters(), lr=alpha)
         self.device = T.device("cuda:0" if T.cuda.is_available() else "cpu")
 
+        # self.activation = T.nn.SELU()
+        self.activation = T.nn.ReLU()
+        # self.activation = T.nn.Tanh()
+
         self.to(self.device)
 
     def forward(self, state):
-        x = F.relu(self.fc1(state))
-        x = F.relu(self.fc2(x))
+        x = state
+        x = self.activation(self.fc1(x))
+        # x = self.activation(self.fc2(x))
+        x = self.activation(self.fc3(x))
         pi = T.softmax(self.pi(x), dim=1)
 
         return pi
@@ -168,7 +182,7 @@ class Agent:
             alpha,
             actor_dims,
             fc1,
-            fc2,
+            fc1,
             n_actions,
             chkpt_dir=chkpt_dir,
             name=self.agent_name + "_actor",
@@ -176,7 +190,7 @@ class Agent:
         self.critic = CriticNetwork(
             beta,
             critic_dims,
-            fc1,
+            fc2,
             fc2,
             n_agents,
             n_actions,
@@ -209,8 +223,8 @@ class Agent:
         # print(observation)
         # print(T.tensor(observation, dtype=T.float))
         actions = self.actor.forward(observation)
-        noise = T.rand(self.n_actions).to(self.actor.device) / 10
-        action = actions + noise
+        noise = T.rand(self.n_actions).to(self.actor.device)
+        action = actions + noise * int((not evaluate))
 
         return action.detach().cpu().numpy()[0]
 

@@ -52,17 +52,18 @@ random.seed(args.seed)
 
 # setup environment
 if args.env == "simple":
-    env = simple_v2.parallel_env(max_cycles=args.episode_len)
+    env = simple_v2
 elif args.env == "communication":
-    env = simple_reference_v3.parallel_env(max_cycles=args.episode_len)
+    env = simple_reference_v3
 elif args.env == "spread":
-    env = simple_spread_v2.parallel_env(max_cycles=args.episode_len)
+    env = simple_spread_v2
 elif args.env == "adversary":
-    env = simple_adversary_v2.parallel_env(max_cycles=args.episode_len)
+    env = simple_adversary_v2
 
+env = env.parallel_env(max_cycles=args.episode_len, continuous_actions=True)
 num_agents = env.max_num_agents
-# print(env.action_spaces)
-action_space = env.action_spaces["agent_0"].n
+print(env.action_spaces)
+action_space = env.action_spaces["agent_0"].shape
 env = ss.pad_observations_v0(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
 # env = ss.concat_vec_envs_v0(game, 10, num_cpus=5, base_class='stable_baselines3')
