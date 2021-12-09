@@ -1,6 +1,7 @@
 from framework.experiment_builder import ExperimentBuilder
 from framework.utils.arg_extractor import get_args
 import numpy as np
+import random
 import torch
 from pettingzoo.mpe import (
     simple_v2,
@@ -16,6 +17,9 @@ from framework.policies.ppo import ppo_policy
 from framework.policies.maddpg import maddpg_policy
 import os
 from torch.utils.tensorboard import SummaryWriter
+import warnings
+
+warnings.filterwarnings("ignore")
 
 args = get_args()  # get arguments from command line
 
@@ -42,8 +46,9 @@ print(vars(args))
 logger.add_hparams(vars(args), {"rewards/end_reward": 0})
 
 # set seeds
-rng = np.random.RandomState(seed=args.seed)  # set the seeds for the experiment
+np.random.RandomState(seed=args.seed)  # set the seeds for the experiment
 torch.manual_seed(seed=args.seed)  # sets pytorch's seed
+random.seed(args.seed)
 
 # setup environment
 if args.env == "simple":

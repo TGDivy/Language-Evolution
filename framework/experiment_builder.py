@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.io import read_video
 from framework.utils.base import base_policy
 import shutil
+import numpy as np
 
 
 class ExperimentBuilder(nn.Module):
@@ -92,7 +93,7 @@ class ExperimentBuilder(nn.Module):
         for _ in range(N):
             obs = env.reset()
             for i in range(episode_len - 1):
-                act, _ = self.Policy.action(obs)
+                act, _ = self.Policy.action(obs, evaluate=True)
                 obs, _, _, _ = env.step(act)
         env.close()
 
@@ -110,6 +111,20 @@ class ExperimentBuilder(nn.Module):
 
         videos = torch.concat(videos)
         self.logger.add_video(f"{self.experiment_name}-{id}", videos, fps=10)
+
+    def score(self, step):
+        N = 50
+        env = self.env
+        rewards = []
+        for _ in range(N):
+            obs = env.reset()
+            for i in range(self.episode_len - 1):
+                act, _ = self.Policy.action(obs, evaluate=True)
+                obs, reward, _, _ = env.step(act)
+            rewards.append(reward)
+
+        self.logger.add_scalar("rewards/Val_end_reward", np.mean(rewards), step)
+        env.close()
 
     def run_experiment(self):
 
@@ -136,6 +151,9 @@ class ExperimentBuilder(nn.Module):
                     total_steps,
                 )
                 self.logger.add_scalar("stats/move_prob", move_probs, total_steps)
+
+            if (ep_i + 1) % (100) == 0:
+                self.score(ep_i)
 
             if (ep_i + 1) % (self.n_episodes // 10) == 0:
                 self.save_video(ep_i)

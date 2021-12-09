@@ -44,16 +44,17 @@ class maddpg_policy(base_policy):
             1000000, critic_dims, actor_dims, action_space, n_agents, batch_size=1024
         )
 
-    def action(self, observation):
+    def action(self, observation, evaluate=False):
 
         obs = T.tensor(np.array([observation]), dtype=T.float, device="cuda")
 
-        actions = self.maddpg_agents.choose_action(obs)
+        actions = self.maddpg_agents.choose_action(obs, evaluate)
         self.to_remember = (
             observation,
             obs_list_to_state_vector(observation),
             actions,
         )
+        # print(actions)
         actions = [np.argmax(a) for a in actions]
         # print(actions)
         return actions, ([0], 0)
@@ -204,11 +205,11 @@ class Agent:
 
         self.update_network_parameters(tau=1)
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, evaluate=False):
         # print(observation)
         # print(T.tensor(observation, dtype=T.float))
         actions = self.actor.forward(observation)
-        noise = T.rand(self.n_actions).to(self.actor.device) / self.n_actions * 2
+        noise = T.rand(self.n_actions).to(self.actor.device) / 10
         action = actions + noise
 
         return action.detach().cpu().numpy()[0]
@@ -390,11 +391,11 @@ class MADDPG:
         for agent in self.agents:
             agent.load_models()
 
-    def choose_action(self, raw_obs):
+    def choose_action(self, raw_obs, evaluate=False):
         actions = []
         for agent_idx, agent in enumerate(self.agents):
             # print(raw_obs.shape)
-            action = agent.choose_action(raw_obs[:, agent_idx, :])
+            action = agent.choose_action(raw_obs[:, agent_idx, :], evaluate)
             actions.append(action)
         return actions
 
