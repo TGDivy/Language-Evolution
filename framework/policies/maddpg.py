@@ -54,9 +54,7 @@ class maddpg_policy(base_policy):
             obs_list_to_state_vector(observation),
             actions,
         )
-        actions = [
-            T.distributions.Categorical(T.tensor(a)).sample().item() for a in actions
-        ]
+        actions = [np.argmax(a) for a in actions]
         # print(actions)
         return actions, ([0], 0)
 
@@ -210,8 +208,8 @@ class Agent:
         # print(observation)
         # print(T.tensor(observation, dtype=T.float))
         actions = self.actor.forward(observation)
-        # noise = T.rand(self.n_actions).to(self.actor.device) / self.n_actions * 2
-        action = actions  # + noise
+        noise = T.rand(self.n_actions).to(self.actor.device) / self.n_actions * 2
+        action = actions + noise
 
         return action.detach().cpu().numpy()[0]
 
