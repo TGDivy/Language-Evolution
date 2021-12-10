@@ -136,9 +136,10 @@ class ActorNetwork(nn.Module):
         self.optimizer = optim.Adam(self.parameters(), lr=alpha)
         self.device = T.device("cuda:0" if T.cuda.is_available() else "cpu")
 
-        # self.activation = T.nn.SELU()
-        self.activation = T.nn.ReLU()
-        # self.activation = T.nn.Tanh()
+        self.activation = T.nn.SELU()
+        # self.activation = T.nn.ReLU()
+        self.activation = T.nn.Tanh()
+        # self.activation = T.nn.Sigmoid()
 
         self.to(self.device)
 
@@ -148,7 +149,8 @@ class ActorNetwork(nn.Module):
         # x = self.activation(self.fc2(x))
         x = self.activation(self.fc3(x))
         pi = self.pi(x)
-        # pi = T.softmax(pi, dim=1)
+        pi = self.activation(pi)
+        # print(pi)
 
         return pi
 

@@ -54,7 +54,7 @@ random.seed(args.seed)
 if args.env == "simple":
     env = simple_v2
 elif args.env == "communication":
-    env = simple_reference_v3
+    env = simple_reference_v2
 elif args.env == "spread":
     env = simple_spread_v2
 elif args.env == "adversary":
