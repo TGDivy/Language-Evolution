@@ -147,7 +147,8 @@ class ActorNetwork(nn.Module):
         x = self.activation(self.fc1(x))
         # x = self.activation(self.fc2(x))
         x = self.activation(self.fc3(x))
-        pi = T.softmax(self.pi(x), dim=1)
+        pi = self.pi(x)
+        # pi = T.softmax(pi, dim=1)
 
         return pi
 

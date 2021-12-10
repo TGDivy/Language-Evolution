@@ -3,8 +3,11 @@ import torch as T
 from torch import nn
 from torch import optim
 import os
+import torch
 from torch.nn import Softmax
 from torch.distributions.categorical import Categorical
+from torch.distributions import MultivariateNormal
+
 from torch.nn import MSELoss
 from torch.nn import HuberLoss
 from dotmap import DotMap
@@ -41,7 +44,7 @@ class ppo_policy(base_policy):
     def add_logger(self, logger: SummaryWriter):
         self.logger = logger
 
-    def action(self, observations):
+    def action(self, observations, **kwargs):
 
         actions = []
         for i, agent in enumerate(self.agents):
@@ -62,7 +65,7 @@ class ppo_policy(base_policy):
                 action,
                 value,
             )
-            actions.append(action.item())
+            actions.append(action.numpy())
 
         return actions, (value, action_p)
 
@@ -123,8 +126,8 @@ class PPOMemory:
 
     def clear_memory(self):
         self.observations = T.zeros(self.total_memory, self.input_size)
-        self.action_p = T.zeros(self.total_memory, 1)
-        self.action = T.zeros(self.total_memory, 1)
+        self.action_p = T.zeros(self.total_memory, 15)
+        self.action = T.zeros(self.total_memory, 15)
         self.vals = T.zeros(self.total_memory)
         self.rewards = T.zeros(self.total_memory)
         self.dones = T.zeros(self.total_memory)
@@ -142,7 +145,7 @@ class Agent:
         self.entropy = args.entropy
 
         self.ppo = ACNetwork(
-            action_space, input_shape, num_layers, num_filters, device, lr
+            action_space[0], input_shape, num_layers, num_filters, device, lr
         )
         self.memory = PPOMemory(input_shape, args.batch_size, args.total_memory)
         # self.huber = HuberLoss(reduction="mean", delta=1.0)
@@ -164,11 +167,16 @@ class Agent:
 
         action, value = self.ppo(observations)
 
-        action_dist = Categorical(action)
+        # action_dist = Categorical(action)
+        # print(action)
+        action_dist = MultivariateNormal(
+            action[0], T.eye(action.shape[1], dtype=T.float, device=self.device)
+        )
+        # print(action_dist)
         action = action_dist.sample()
         action_p = action_dist.log_prob(action)
 
-        return action_p, action, value
+        return action_p.cpu(), action.cpu(), value.cpu()
 
     def advantage(self, reward_arr, values, dones_arr):
         advantage = np.zeros(len(reward_arr), dtype=np.float16)
@@ -229,8 +237,12 @@ class Agent:
                 total_loss += critic_loss * 0.5
 
                 #### Unit, City Actors Loss
-                dist = Categorical(action)
-                new_probs = dist.log_prob(actions)
+                # dist = Categorical(action)
+                dist = MultivariateNormal(
+                    action[0], T.eye(action.shape[1], dtype=T.float, device=self.device)
+                )
+                new_probs = dist.log_prob(actions)[:, None]
+                # print(new_probs.shape, old_probs.shape)
                 prob_ratio = (new_probs - old_probs).exp()
 
                 weighted_probs = prob_ratio * adv.reshape(-1, 1)

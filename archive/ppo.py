@@ -5,6 +5,7 @@ from torch import optim
 import os
 from torch.nn import Softmax
 from torch.distributions.categorical import Categorical
+from torch.distributions import MultivariateNormal
 from torch.nn import MSELoss
 from torch.nn import HuberLoss
 from dotmap import DotMap

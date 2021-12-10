@@ -67,7 +67,7 @@ class SimpleEnv(AECEnv):
             state_dim += obs_dim
             if self.continuous_actions:
                 self.action_spaces[agent.name] = spaces.Box(
-                    low=0, high=1, shape=(space_dim,)
+                    low=-1, high=1, shape=(space_dim,)
                 )
             else:
                 self.action_spaces[agent.name] = spaces.Discrete(space_dim)
