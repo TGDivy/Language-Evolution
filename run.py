@@ -42,7 +42,18 @@ os.mkdir(experiment_videos)
 
 logger = SummaryWriter(experiment_logs)
 
-print(vars(args))
+print("\n*****Parameters*****")
+space = " "
+print(
+    "\n".join(
+        [
+            f"--- {param}: {(20-len(param))*space} {value}"
+            for param, value in vars(args).items()
+        ]
+    )
+)
+print("*******************")
+
 logger.add_hparams(vars(args), {"rewards/end_reward": 0})
 
 # set seeds
@@ -62,7 +73,6 @@ elif args.env == "adversary":
 
 env = env.parallel_env(max_cycles=args.episode_len, continuous_actions=True)
 num_agents = env.max_num_agents
-print(env.action_spaces)
 action_space = env.action_spaces["agent_0"].shape
 env = ss.pad_observations_v0(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)

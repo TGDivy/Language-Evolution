@@ -10,3 +10,4 @@ pettingzoo/mpe/_mpe_utils/__pycache__/core.cpython-39.pyc
 *.mp4
 *.json
 *events.out.tfevents*
+pettingzoo/mpe/scenarios/__pycache__/simple_reference.cpython-39.pyc

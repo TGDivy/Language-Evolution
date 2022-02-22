@@ -140,5 +140,5 @@ def get_args():
         help="environment for agent",
     )
     args = parser.parse_args()
-    print(args)
+    # print(args)
     return args

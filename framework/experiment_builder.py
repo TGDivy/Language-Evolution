@@ -90,9 +90,12 @@ class ExperimentBuilder(nn.Module):
             name_prefix=f"{self.experiment_name}-{id}",
         )
         N = 2
+        import time
+
         for _ in range(N):
             obs = env.reset()
             for i in range(episode_len - 1):
+                time.sleep(0.5)
                 act, _ = self.Policy.action(obs, evaluate=True)
                 obs, _, _, _ = env.step(act)
         env.close()
@@ -110,6 +113,7 @@ class ExperimentBuilder(nn.Module):
             videos.append(v)
 
         videos = torch.concat(videos)
+        print(videos)
         self.logger.add_video(f"{self.experiment_name}-{id}", videos, fps=10)
 
     def score(self, step):
