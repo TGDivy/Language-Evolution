@@ -95,8 +95,8 @@ class ExperimentBuilder(nn.Module):
         for _ in range(N):
             obs = env.reset()
             for i in range(episode_len - 1):
-                time.sleep(0.5)
-                act, _ = self.Policy.action(obs, evaluate=True)
+                # time.sleep(0.5)
+                act, _ = self.Policy.action(obs, new_episode=i == 0, evaluate=True)
                 obs, _, _, _ = env.step(act)
         env.close()
 
@@ -113,7 +113,6 @@ class ExperimentBuilder(nn.Module):
             videos.append(v)
 
         videos = torch.concat(videos)
-        print(videos)
         self.logger.add_video(f"{self.experiment_name}-{id}", videos, fps=10)
 
     def score(self, step):
@@ -122,8 +121,8 @@ class ExperimentBuilder(nn.Module):
         rewards = []
         for _ in range(N):
             obs = env.reset()
-            for i in range(self.episode_len - 1):
-                act, _ = self.Policy.action(obs, evaluate=True)
+            for i in range(self.episode_len):
+                act, _ = self.Policy.action(obs, new_episode=i == 0, evaluate=True)
                 obs, reward, _, _ = env.step(act)
             rewards.append(reward)
 
@@ -134,19 +133,21 @@ class ExperimentBuilder(nn.Module):
 
         total_steps = 0
 
-        for ep_i in tqdm(range(0, self.n_episodes)):
+        for ep_i in tqdm(range(0, self.n_episodes + 1)):
             observation = self.env.reset()
             rewards, dones = 0, False
 
-            for step in range(self.episode_len - 1):
+            for step in range(self.episode_len):
 
-                actions, (value, move_probs) = self.Policy.action(observation)
+                actions, (value, move_probs) = self.Policy.action(
+                    observation, new_episode=step == 0
+                )
 
                 observation, rewards, dones, infos = self.env.step(actions)
+                # self.env.render()
 
                 self.Policy.store(total_steps, observation, rewards, dones)
 
-                # self.env.render()
                 total_steps += 1
 
                 self.logger.add_scalars(
@@ -154,12 +155,12 @@ class ExperimentBuilder(nn.Module):
                     {"value": value[0], "reward": rewards[0]},
                     total_steps,
                 )
-                self.logger.add_scalar("stats/move_prob", move_probs, total_steps)
+                self.logger.add_scalar("stats/move_prob", move_probs.exp(), total_steps)
 
             if (ep_i + 1) % (100) == 0:
                 self.score(ep_i)
 
-            if (ep_i + 1) % (self.n_episodes // 10) == 0:
+            if (ep_i + 1) % (self.n_episodes // 5) == 0:
                 self.save_video(ep_i)
             self.logger.add_scalar("rewards/end_reward", rewards[0], (ep_i + 1))
 

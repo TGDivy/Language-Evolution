@@ -15,6 +15,7 @@ import shutil
 import supersuit as ss
 from framework.policies.ppo import ppo_policy
 from framework.policies.maddpg import maddpg_policy
+from framework.policies.ppo_rec import ppo_rec_policy
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
@@ -71,16 +72,23 @@ elif args.env == "spread":
 elif args.env == "adversary":
     env = simple_adversary_v2
 
-env = env.parallel_env(max_cycles=args.episode_len, continuous_actions=True)
+env = env.parallel_env(max_cycles=args.episode_len, continuous_actions=False)
 num_agents = env.max_num_agents
-action_space = env.action_spaces["agent_0"].shape
+action_space = env.action_spaces["agent_0"].n
 env = ss.pad_observations_v0(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
 # env = ss.concat_vec_envs_v0(game, 10, num_cpus=5, base_class='stable_baselines3')
+
+print(env.action_space)
+print(env.action_space.n)
+print(env.observation_space)
+
 obs = env.reset()
 
 if args.model == "ppo":
     Policy = ppo_policy
+elif args.model == "ppo-rec":
+    Policy = ppo_rec_policy
 elif args.model == "maddpg":
     Policy = maddpg_policy
 else:

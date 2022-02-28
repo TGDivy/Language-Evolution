@@ -7,7 +7,7 @@ from .._mpe_utils.scenario import BaseScenario
 class Scenario(BaseScenario):
     def make_world(self):
         world = World()
-        world.dim_c = 10
+        world.dim_c = 1
         # add agents
         world.agents = [Agent() for i in range(1)]
         for i, agent in enumerate(world.agents):
@@ -41,8 +41,8 @@ class Scenario(BaseScenario):
             landmark.state.p_vel = np.zeros(world.dim_p)
 
     def reward(self, agent, world):
-        dist2 = np.sum(np.square(agent.state.p_pos - world.landmarks[0].state.p_pos))
-        return -dist2
+        dist = np.linalg.norm(agent.state.p_pos - world.landmarks[0].state.p_pos)
+        return -dist
 
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame

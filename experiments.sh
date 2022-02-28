@@ -11,4 +11,4 @@
 
 # python run.py --model "maddpg" --env "adversary" --experiment_name "v0" --total_memory 12 --episode_len 25 --batch_size 4 --n_episodes 40000 --num_layers 3 --num_filters 128 --communicate 0 --n_epochs 3
 
-python run.py --model "maddpg" --env "communication" --experiment_name "v4-3commchan" --total_memory 12 --episode_len 50 --batch_size 4 --n_episodes 250 --num_layers 3 --num_filters 128 --communicate 0 --n_epochs 3
+python run.py --model "ppo-rec" --env "simple" --experiment_name "simple-rec4" --total_memory 10 --episode_len 25 --batch_size 5 --n_episodes 3000 --num_layers 3 --num_filters 128 --communicate 3 --n_epochs 3 --lr 0.0001
