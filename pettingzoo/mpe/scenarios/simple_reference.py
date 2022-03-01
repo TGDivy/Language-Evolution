@@ -56,8 +56,8 @@ class Scenario(BaseScenario):
         if agent.goal_a is None or agent.goal_b is None:
             agent_reward = 0.0
         else:
-            agent_reward = np.sqrt(
-                np.sum(np.square(agent.goal_a.state.p_pos - agent.goal_b.state.p_pos))
+            agent_reward = np.linalg.norm(
+                agent.goal_a.state.p_pos - agent.goal_b.state.p_pos
             )
         return -agent_reward
 

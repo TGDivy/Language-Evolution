@@ -123,11 +123,10 @@ class ExperimentBuilder(nn.Module):
             obs = env.reset()
             for i in range(self.episode_len):
                 act, _ = self.Policy.action(obs, new_episode=i == 0, evaluate=True)
-                act = act.numpy()
                 obs, reward, _, _ = env.step(act)
             rewards.append(reward)
 
-        self.logger.add_scalar("rewards/Val_end_reward", np.mean(rewards), step)
+        self.logger.add_scalar("losses/End_Reward_validation", np.mean(rewards), step)
         env.close()
 
     def run_experiment(self):
@@ -157,5 +156,7 @@ class ExperimentBuilder(nn.Module):
 
             if (step + 1) % (steps // 5) == 0:
                 self.save_video(step)
+
+        self.train_env.close()
 
         # self.save_video("final")

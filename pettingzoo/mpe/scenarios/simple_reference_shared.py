@@ -53,12 +53,9 @@ class Scenario(BaseScenario):
             landmark.state.p_vel = np.zeros(world.dim_p)
 
     def reward(self, agent, world):
-        if agent.goal_a is None or agent.goal_b is None:
-            agent_reward = 0.0
-        else:
-            agent_reward = np.sqrt(
-                np.sum(np.square(agent.goal_a.state.p_pos - agent.goal_b.state.p_pos))
-            )
+        agent_reward = np.linalg.norm(
+            agent.goal_a.state.p_pos - agent.goal_b.state.p_pos
+        )
         return -agent_reward
 
     def global_reward(self, world):
@@ -87,7 +84,7 @@ class Scenario(BaseScenario):
                 continue
             comm.append(other.state.c)
             actions.append(other.state.p_vel)
-            actions.append(other.state.p_pos)
+            actions.append(other.state.p_pos - agent.state.p_pos)
         if len(world.actions) >= 2:
             actions.append(world.actions[-1])
             actions.append(world.actions[-2])

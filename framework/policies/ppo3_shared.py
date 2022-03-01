@@ -46,7 +46,7 @@ class ppo_policy3_shared(base_policy):
             value,
         )
 
-        return action, (value, action_p)
+        return action.numpy(), (value, action_p)
 
     def store(self, total_steps, obs, rewards, dones):
 

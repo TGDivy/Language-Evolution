@@ -64,6 +64,9 @@ if args.env == "simple":
 elif args.env == "communication":
     env = simple_reference_v2
     args.n_agents = 2
+elif args.env == "communication_full":
+    env = simple_reference_v3
+    args.n_agents = 2
 elif args.env == "spread":
     env = simple_spread_v2
 elif args.env == "adversary":
