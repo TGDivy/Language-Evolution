@@ -72,14 +72,17 @@ elif args.env == "spread":
 elif args.env == "adversary":
     env = simple_adversary_v2
 env = env.parallel_env(args.episode_len, continuous_actions=False)
-
-
+num_agents = env.max_num_agents
+action_space = env.action_spaces["agent_0"].n
 env = ss.pad_observations_v0(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
-parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, args.num_envs)
-parrallel_env.seed(args.seed)
-obs = parrallel_env.reset()
-print(f"Observation shape: {obs.shape}, Action space: {parrallel_env.action_space}")
+num_envs = 4
+multienv = ss.gym_vec_env_v0(env, num_envs, multiprocessing=True)
+print(env.action_space)
+print(env.action_space.n)
+print(env.observation_space)
+obs = env.reset()
+print(obs)
 ##############################################################
 
 ############### MODEL ########################################

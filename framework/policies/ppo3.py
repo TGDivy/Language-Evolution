@@ -18,7 +18,7 @@ from framework.utils.base import base_policy
 from torch.utils.tensorboard import SummaryWriter
 
 
-class ppo_policy(base_policy):
+class ppo_policy3(base_policy):
     def __init__(self, args, num_envs, n_agents, action_space, lr, device):
         self.args = args
         self.num_envs = num_envs
@@ -74,10 +74,10 @@ class ppo_policy(base_policy):
 
 
 class PPOMemory:
-    def __init__(self, input_size, batch_size, total_memory):
-        self.batch_size = batch_size
-        self.total_memory = total_memory
-        self.input_size = input_size[-1]
+    def __init__(self, num_steps, num_envs, obs_space):
+        self.num_steps = num_steps
+        self.num_envs = num_envs
+        self.obs_space = obs_space
         self.clear_memory()
 
     def generate_batches(self):
@@ -102,10 +102,10 @@ class PPOMemory:
 
         return dic
 
-    def store_memory(self, observations, action_p, action, vals, reward, done):
+    def store_memory(self, observations, logprobs, action, vals, reward, done):
         self.observations[self.counter] = observations[0]
 
-        self.action_p[self.counter] = action_p
+        self.logprobs[self.counter] = logprobs
         self.action[self.counter] = action
         self.vals[self.counter] = vals
         self.rewards[self.counter] = reward
@@ -113,12 +113,14 @@ class PPOMemory:
         self.counter += 1
 
     def clear_memory(self):
-        self.observations = T.zeros(self.total_memory, self.input_size)
-        self.action_p = T.zeros(self.total_memory, 15)
-        self.action = T.zeros(self.total_memory, 15)
-        self.vals = T.zeros(self.total_memory)
-        self.rewards = T.zeros(self.total_memory)
-        self.dones = T.zeros(self.total_memory)
+        space = (self.num_steps, self.num_envs)
+
+        self.observations = T.zeros(space + self.obs_space)
+        self.logprobs = T.zeros(space)
+        self.action = T.zeros(space)
+        self.vals = T.zeros(space)
+        self.rewards = T.zeros(space)
+        self.dones = T.zeros(space)
         self.counter = 0
 
 
