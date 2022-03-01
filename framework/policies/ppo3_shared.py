@@ -18,59 +18,50 @@ from framework.utils.base import base_policy
 from torch.utils.tensorboard import SummaryWriter
 
 
-class ppo_policy3(base_policy):
+class ppo_policy3_shared(base_policy):
     def __init__(self, args, writer):
         self.args = args
 
-        self.agents = []
-        for _ in range(args.n_agents):
-            agent = Agent(args, writer)
-            self.agents.append(agent)
-        self.to_remember = {}
+        self.agent = Agent(args, writer)
+        self.to_remember = []
 
     def add_logger(self, logger: SummaryWriter):
         self.logger = logger
 
     def action(self, observations, **kwargs):
 
-        actions = []
-        for i, obs in enumerate(observations):
-            agent = self.agents[i % len(self.agents)]
+        obs_batch = T.tensor(observations, dtype=T.float, device="cuda")
 
-            obs = observations[i]
+        (
+            action_p,
+            action,
+            value,
+        ) = self.agent.choose_action(obs_batch)
+        value = T.squeeze(value)
 
-            obs_batch = T.tensor(np.array([obs]), dtype=T.float, device="cuda")
+        self.to_remember = (
+            obs_batch,
+            action_p,
+            action,
+            value,
+        )
 
-            (
-                action_p,
-                action,
-                value,
-            ) = agent.choose_action(obs_batch)
-
-            self.to_remember[i] = (
-                obs_batch,
-                action_p,
-                action,
-                value,
-            )
-            actions.append(action.item())
-
-        return actions, (value, action_p)
+        return action, (value, action_p)
 
     def store(self, total_steps, obs, rewards, dones):
 
-        for i, agent in enumerate(self.agents):
-            agent.remember(
-                self.to_remember[i][0],
-                self.to_remember[i][1],
-                self.to_remember[i][2],
-                self.to_remember[i][3],
-                T.tensor(rewards[i]),
-                dones[i],
-            )
+        dones = T.Tensor(dones)
+        self.agent.remember(
+            self.to_remember[0],
+            self.to_remember[1],
+            self.to_remember[2],
+            self.to_remember[3],
+            T.tensor(rewards),
+            dones,
+        )
 
-            if agent.memory.counter == self.args.num_steps:
-                agent.learn(total_steps)
+        if self.agent.memory.counter == self.args.num_steps:
+            self.agent.learn(total_steps)
 
 
 class PPOTrainer:
@@ -97,7 +88,6 @@ class PPOTrainer:
 
     def store_memory(self, observations, logprobs, action, vals, reward, done):
         self.obs[self.counter] = observations[0]
-
         self.logprobs[self.counter] = logprobs
         self.actions[self.counter] = action
         self.values[self.counter] = vals
@@ -137,7 +127,7 @@ class PPOTrainer:
         self.advantages = advantages
 
     def clear_memory(self):
-        space = (self.num_steps, self.num_envs)
+        space = (self.num_steps, self.num_envs * self.args.n_agents)
 
         self.obs = T.zeros(space + self.obs_space)
         self.logprobs = T.zeros(space)

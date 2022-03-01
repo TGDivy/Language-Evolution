@@ -123,6 +123,7 @@ class ExperimentBuilder(nn.Module):
             obs = env.reset()
             for i in range(self.episode_len):
                 act, _ = self.Policy.action(obs, new_episode=i == 0, evaluate=True)
+                act = act.numpy()
                 obs, reward, _, _ = env.step(act)
             rewards.append(reward)
 
@@ -149,7 +150,7 @@ class ExperimentBuilder(nn.Module):
 
             total_steps += 1
 
-            self.logger.add_scalar("stats/move_prob", move_probs.exp(), total_steps)
+            # self.logger.add_scalar("stats/move_prob", move_probs.exp(), total_steps)
 
             if (step + 1) % (10000) == 0:
                 self.score(step)

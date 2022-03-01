@@ -11,6 +11,7 @@ from framework.policies.ppo import ppo_policy
 from framework.policies.ppo3 import ppo_policy3
 from framework.policies.maddpg import maddpg_policy
 from framework.policies.ppo_rec import ppo_rec_policy
+from framework.policies.ppo3_shared import ppo_policy3_shared
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
@@ -62,6 +63,7 @@ if args.env == "simple":
     env = simple_v2
 elif args.env == "communication":
     env = simple_reference_v2
+    args.n_agents = 2
 elif args.env == "spread":
     env = simple_spread_v2
 elif args.env == "adversary":
@@ -69,11 +71,12 @@ elif args.env == "adversary":
 env = env.parallel_env()
 env = ss.pad_observations_v0(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
+single_env = ss.concat_vec_envs_v1(env, 1, 1)
 parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, args.num_envs)
 parrallel_env.seed(args.seed)
 obs = parrallel_env.reset()
 print(
-    f"Observation shape: {env.observation_space.shape}, Action space: {parrallel_env.action_space}"
+    f"Observation shape: {env.observation_space.shape}, Action space: {parrallel_env.action_space}, all_obs shape: {obs.shape}"
 )
 args.obs_space = env.observation_space.shape
 args.device = "cuda"
@@ -88,6 +91,8 @@ elif args.model == "maddpg":
     Policy = maddpg_policy
 elif args.model == "ppo_policy3":
     Policy = ppo_policy3
+elif args.model == "ppo_policy3_shared":
+    Policy = ppo_policy3_shared
 else:
     pass
 Policy = Policy(args, logger)
@@ -95,7 +100,7 @@ Policy = Policy(args, logger)
 
 exp = ExperimentBuilder(
     train_environment=parrallel_env,
-    test_environment=env,
+    test_environment=single_env,
     Policy=Policy,
     experiment_name=experiment_name,
     logfolder=experiment_videos,
