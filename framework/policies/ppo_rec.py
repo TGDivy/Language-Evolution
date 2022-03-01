@@ -158,6 +158,7 @@ class Agent:
         self.ppo = RACNetwork(
             action_space, input_shape, num_layers, num_filters, device, lr
         )
+        print(self.ppo)
         self.memory = PPOMemory(input_shape, args.batch_size, args.total_memory)
         # self.huber = HuberLoss(reduction="mean", delta=1.0)
         self.mse = MSELoss(reduction="mean")
@@ -273,11 +274,11 @@ class Agent:
                 actor_loss = -T.min(weighted_probs, weighted_clipped_probs).mean()
 
                 total_loss += actor_loss
-                total_loss += self.entropy  # * T.mean(dist.entropy())
+                total_loss += self.entropy * T.mean(dist.entropy())
 
                 total_loss.backward()
                 self.ppo.optimizer.step()
                 self.ppo.optimizer.zero_grad()
-        self.ppo.scheduler.step()
+        # self.ppo.scheduler.step()
 
         self.memory.clear_memory()
