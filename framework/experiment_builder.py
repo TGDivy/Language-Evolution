@@ -14,12 +14,12 @@ import numpy as np
 class ExperimentBuilder(nn.Module):
     def __init__(
         self,
-        environment,
+        train_environment,
+        test_environment,
         Policy: base_policy,
         experiment_name,
         logfolder,
         videofolder,
-        n_episodes,
         episode_len,
         logger: SummaryWriter,
     ):
@@ -27,7 +27,8 @@ class ExperimentBuilder(nn.Module):
 
         self.Policy = Policy
 
-        self.env = environment
+        self.train_env = train_environment
+        self.test_env = test_environment
         self.episode_len = episode_len
         print("System learnable parameters")
         for name, value in self.named_parameters():
@@ -38,7 +39,6 @@ class ExperimentBuilder(nn.Module):
         self.experiment_videos = videofolder
 
         self.logger = logger
-        self.n_episodes = n_episodes
 
     def save_model(self, model_save_dir, model_save_name, index):
         """
@@ -83,7 +83,7 @@ class ExperimentBuilder(nn.Module):
 
         episode_len = self.episode_len
         env = VecVideoRecorder(
-            self.env,
+            self.test_env,
             self.experiment_videos,
             record_video_trigger=lambda x: x == 0,
             video_length=episode_len - 1,
@@ -117,7 +117,7 @@ class ExperimentBuilder(nn.Module):
 
     def score(self, step):
         N = 50
-        env = self.env
+        env = self.test_env
         rewards = []
         for _ in range(N):
             obs = env.reset()
@@ -132,39 +132,29 @@ class ExperimentBuilder(nn.Module):
     def run_experiment(self):
 
         total_steps = 0
+        observation = self.train_env.reset()
+        rewards, dones = 0, False
 
-        for ep_i in tqdm(range(0, self.n_episodes + 1)):
-            observation = self.env.reset()
-            rewards, dones = 0, False
+        steps = 300000
 
-            for step in range(self.episode_len):
+        for step in tqdm(range(0, steps)):
+            actions, (value, move_probs) = self.Policy.action(
+                observation, new_episode=step == 0
+            )
 
-                actions, (value, move_probs) = self.Policy.action(
-                    observation, new_episode=step == 0
-                )
+            observation, rewards, dones, infos = self.train_env.step(actions)
+            # self.env.render()
 
-                print(actions)
-                print("------")
+            self.Policy.store(total_steps, observation, rewards, dones)
 
-                observation, rewards, dones, infos = self.env.step(actions)
-                # self.env.render()
+            total_steps += 1
 
-                self.Policy.store(total_steps, observation, rewards, dones)
+            self.logger.add_scalar("stats/move_prob", move_probs.exp(), total_steps)
 
-                total_steps += 1
+            if (step + 1) % (10000) == 0:
+                self.score(step)
 
-                self.logger.add_scalars(
-                    "stats/value_reward",
-                    {"value": value[0], "reward": rewards[0]},
-                    total_steps,
-                )
-                self.logger.add_scalar("stats/move_prob", move_probs.exp(), total_steps)
+            if (step + 1) % (steps // 5) == 0:
+                self.save_video(step)
 
-            if (ep_i + 1) % (100) == 0:
-                self.score(ep_i)
-
-            if (ep_i + 1) % (self.n_episodes // 5) == 0:
-                self.save_video(ep_i)
-            self.logger.add_scalar("rewards/end_reward", rewards[0], (ep_i + 1))
-
-        self.save_video("final")
+        # self.save_video("final")
