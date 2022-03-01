@@ -12,10 +12,6 @@ import torch.optim as optim
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
 
-from pettingzoo.mpe import simple_v2
-import shutil
-import supersuit as ss
-
 
 def parse_args():
     # fmt: off
@@ -83,14 +79,14 @@ def parse_args():
 
 def make_env(gym_id, seed, idx, capture_video, run_name):
     def thunk():
-        env = simple_v2.env(max_cycles=25, continuous_actions=False)
+        env = gym.make(gym_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if capture_video:
             if idx == 0:
                 env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         env.seed(seed)
-        # env.action_space.seed(seed)
-        # env.observation_space.seed(seed)
+        env.action_space.seed(seed)
+        env.observation_space.seed(seed)
         return env
 
     return thunk

@@ -1,4 +1,6 @@
 import argparse
+from distutils.util import strtobool
+import os
 
 
 def str2bool(v):
@@ -11,113 +13,132 @@ def str2bool(v):
 
 
 def get_args():
-    """
-    Returns a namedtuple with arguments extracted from the command line.
-    :return: A namedtuple with arguments
-    """
-    parser = argparse.ArgumentParser(
-        description="Welcome to the MLP course's Pytorch training and inference helper script"
-    )
+    parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--batch_size",
-        nargs="?",
+        "--learning-rate",
+        type=float,
+        default=2.5e-4,
+        help="the learning rate of the optimizer",
+    )
+    parser.add_argument("--seed", type=int, default=1, help="seed of the experiment")
+    parser.add_argument(
+        "--total-timesteps",
         type=int,
-        default=5,
-        help="Batch_size for experiment",
+        default=25000,
+        help="total timesteps of the experiments",
+    )
+    parser.add_argument(
+        "--torch-deterministic",
+        type=lambda x: bool(strtobool(x)),
+        default=True,
+        nargs="?",
+        const=True,
+        help="if toggled, `torch.backends.cudnn.deterministic=False`",
+    )
+    parser.add_argument(
+        "--cuda",
+        type=lambda x: bool(strtobool(x)),
+        default=True,
+        nargs="?",
+        const=True,
+        help="if toggled, cuda will be enabled by default",
+    )
+    parser.add_argument(
+        "--capture-video",
+        type=lambda x: bool(strtobool(x)),
+        default=False,
+        nargs="?",
+        const=True,
+        help="weather to capture videos of the agent performances (check out `videos` folder)",
     )
 
+    # Algorithm specific arguments
     parser.add_argument(
-        "--seed",
-        nargs="?",
+        "--num-envs",
         type=int,
-        default=7112018,
-        help="Seed to use for random number generator for experiment",
+        default=4,
+        help="the number of parallel game environments",
     )
     parser.add_argument(
-        "--n_episodes",
-        nargs="?",
-        type=int,
-        default=100,
-        help="n_episodes",
-    )
-    parser.add_argument(
-        "--episode_len",
-        nargs="?",
-        type=int,
-        default=25,
-        help="episode_len",
-    )
-    parser.add_argument(
-        "--n_epochs",
-        nargs="?",
-        type=int,
-        default=3,
-        help="n_epochs",
-    )
-    parser.add_argument(
-        "--num_layers",
-        nargs="?",
-        type=int,
-        default=7,
-        help="num_layers",
-    )
-    parser.add_argument(
-        "--num_filters",
-        nargs="?",
+        "--num-steps",
         type=int,
         default=128,
-        help="num_filters",
+        help="the number of steps to run in each environment per policy rollout",
     )
     parser.add_argument(
-        "--total_memory",
+        "--anneal-lr",
+        type=lambda x: bool(strtobool(x)),
+        default=True,
         nargs="?",
-        type=int,
-        default=10,
-        help="num_filters",
+        const=True,
+        help="Toggle learning rate annealing for policy and value networks",
     )
     parser.add_argument(
-        "--device",
+        "--gae",
+        type=lambda x: bool(strtobool(x)),
+        default=True,
         nargs="?",
-        type=str,
-        default="cuda",
-        help="num_filters",
+        const=True,
+        help="Use GAE for advantage computation",
     )
-    parser.add_argument("--alpha", nargs="?", type=float, default=1e-4, help="alpha")
-    parser.add_argument("--gamma", nargs="?", type=float, default=0.99, help="gamma")
-
     parser.add_argument(
-        "--communicate", nargs="?", type=int, default=0, help="communicate"
+        "--gamma", type=float, default=0.99, help="the discount factor gamma"
     )
-
     parser.add_argument(
-        "--gae_lambda",
-        nargs="?",
+        "--gae-lambda",
         type=float,
-        default=0.90,
-        help="gae_lambda",
+        default=0.95,
+        help="the lambda for the general advantage estimation",
     )
     parser.add_argument(
-        "--policy_clip",
+        "--num-minibatches", type=int, default=4, help="the number of mini-batches"
+    )
+    parser.add_argument(
+        "--update-epochs", type=int, default=4, help="the K epochs to update the policy"
+    )
+    parser.add_argument(
+        "--norm-adv",
+        type=lambda x: bool(strtobool(x)),
+        default=True,
         nargs="?",
+        const=True,
+        help="Toggles advantages normalization",
+    )
+    parser.add_argument(
+        "--clip-coef",
         type=float,
         default=0.2,
-        help="policy_clip",
+        help="the surrogate clipping coefficient",
     )
     parser.add_argument(
-        "--lr",
+        "--clip-vloss",
+        type=lambda x: bool(strtobool(x)),
+        default=True,
         nargs="?",
-        type=float,
-        default=1e-4,
-        help="lr",
+        const=True,
+        help="Toggles wheter or not to use a clipped loss for the value function, as per the paper.",
     )
     parser.add_argument(
-        "--entropy",
-        nargs="?",
-        type=float,
-        default=0.01,
-        help="0.01",
+        "--ent-coef", type=float, default=0.01, help="coefficient of the entropy"
     )
+    parser.add_argument(
+        "--vf-coef", type=float, default=0.5, help="coefficient of the value function"
+    )
+    parser.add_argument(
+        "--max-grad-norm",
+        type=float,
+        default=0.5,
+        help="the maximum norm for the gradient clipping",
+    )
+    parser.add_argument(
+        "--target-kl",
+        type=float,
+        default=None,
+        help="the target KL divergence threshold",
+    )
+    # fmt: on
+    # return args
 
     parser.add_argument(
         "--model",
@@ -132,7 +153,6 @@ def get_args():
         default="exp_1",
         help="Experiment name - to be used for building the experiment folder",
     )
-
     parser.add_argument(
         "--env",
         type=str,
@@ -140,5 +160,7 @@ def get_args():
         help="environment for agent",
     )
     args = parser.parse_args()
-    # print(args)
+    args.batch_size = int(args.num_envs * args.num_steps)
+    args.minibatch_size = int(args.batch_size // args.num_minibatches)
+
     return args

@@ -8,7 +8,7 @@ class Scenario(BaseScenario):
     def make_world(self):
         world = World()
         # set any world properties first
-        world.dim_c = 3
+        world.dim_c = 10
         world.collaborative = True  # whether agents share rewards
         # add agents
         world.agents = [Agent() for i in range(2)]
@@ -74,7 +74,9 @@ class Scenario(BaseScenario):
         # get positions of all entities in this agent's reference frame
         entity_pos = []
         for entity in world.landmarks:
-            entity_pos.append(entity.state.p_pos - agent.state.p_pos)
+            # entity_pos.append(entity.state.p_pos - agent.state.p_pos)
+            entity_pos.append(entity.state.p_pos)
+
         # entity colors
         entity_color = []
         for entity in world.landmarks:
