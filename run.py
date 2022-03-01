@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 
 args = get_args()  # get arguments from command line
 
-# Generate the directory names
+# Generate Directories##########################
 experiment_name = f"{args.model}-{args.env}-{args.experiment_name}"
 experiment_folder = os.path.join(os.path.abspath("experiments"), experiment_name)
 experiment_logs = os.path.abspath(os.path.join(experiment_folder, "result_outputs"))
@@ -40,7 +40,7 @@ os.mkdir(experiment_folder)  # create the experiment directory
 os.mkdir(experiment_logs)  # create the experiment log directory
 os.mkdir(experiment_saved_models)
 os.mkdir(experiment_videos)
-
+################################################
 logger = SummaryWriter(experiment_logs)
 
 print("\n*****Parameters*****")
@@ -58,11 +58,11 @@ print("*******************")
 logger.add_hparams(vars(args), {"rewards/end_reward": 0})
 
 # set seeds
-np.random.RandomState(seed=args.seed)  # set the seeds for the experiment
-torch.manual_seed(seed=args.seed)  # sets pytorch's seed
 random.seed(args.seed)
-
-# setup environment
+np.random.seed(args.seed)
+torch.manual_seed(args.seed)
+torch.backends.cudnn.deterministic = args.torch_deterministic
+# setup environment ###########################################
 if args.env == "simple":
     env = simple_v2
 elif args.env == "communication":
@@ -71,22 +71,21 @@ elif args.env == "spread":
     env = simple_spread_v2
 elif args.env == "adversary":
     env = simple_adversary_v2
-
 env = env.parallel_env(args.episode_len, continuous_actions=False)
 num_agents = env.max_num_agents
 action_space = env.action_spaces["agent_0"].n
 env = ss.pad_observations_v0(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
-
 num_envs = 4
-game = ss.gym_vec_env_v0(env, num_envs, multiprocessing=True)
-
+multienv = ss.gym_vec_env_v0(env, num_envs, multiprocessing=True)
 print(env.action_space)
 print(env.action_space.n)
 print(env.observation_space)
-
 obs = env.reset()
+print(obs)
+##############################################################
 
+############### MODEL ########################################
 if args.model == "ppo":
     Policy = ppo_policy
 elif args.model == "ppo-rec":
@@ -105,6 +104,7 @@ Policy = Policy(
     args.lr,
     args.device,
 )
+###############################################################
 
 exp = ExperimentBuilder(
     environment=env,
