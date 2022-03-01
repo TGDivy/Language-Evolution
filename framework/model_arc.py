@@ -18,11 +18,11 @@ class RACNetwork(nn.Module):
 
         self.build_module()
 
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
-        lambda1 = lambda epoch: 0.999 ** epoch
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.optimizer, lr_lambda=lambda1
-        )
+        self.optimizer = optim.Adam(self.parameters(), lr=lr, eps=1e-5)
+        # lambda1 = lambda epoch: 0.999 ** epoch
+        # self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+        #     self.optimizer, lr_lambda=lambda1
+        # )
 
         self.device = torch.device(device)
         self.to(self.device)

@@ -143,6 +143,9 @@ class ExperimentBuilder(nn.Module):
                     observation, new_episode=step == 0
                 )
 
+                print(actions)
+                print("------")
+
                 observation, rewards, dones, infos = self.env.step(actions)
                 # self.env.render()
 

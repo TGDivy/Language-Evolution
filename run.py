@@ -72,12 +72,14 @@ elif args.env == "spread":
 elif args.env == "adversary":
     env = simple_adversary_v2
 
-env = env.parallel_env(max_cycles=args.episode_len, continuous_actions=False)
+env = env.parallel_env(args.episode_len, continuous_actions=False)
 num_agents = env.max_num_agents
 action_space = env.action_spaces["agent_0"].n
 env = ss.pad_observations_v0(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
-# env = ss.concat_vec_envs_v0(game, 10, num_cpus=5, base_class='stable_baselines3')
+
+num_envs = 4
+game = ss.gym_vec_env_v0(env, num_envs, multiprocessing=True)
 
 print(env.action_space)
 print(env.action_space.n)

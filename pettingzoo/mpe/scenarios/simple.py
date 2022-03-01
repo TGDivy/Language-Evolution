@@ -54,6 +54,5 @@ class Scenario(BaseScenario):
         for entity in world.landmarks:
             entity_color.append(entity.color)
         return np.concatenate(
-            [agent.state.p_vel]
-            + entity_pos  # + entity_color + [world.landmarks[0].color]
+            [agent.state.p_vel] + entity_pos + entity_color + [world.landmarks[0].color]
         )
