@@ -1,3 +1,4 @@
+from matplotlib.collections import PolyCollection
 from framework.experiment_builder import ExperimentBuilder
 from framework.utils.arg_extractor import get_args
 import numpy as np
@@ -12,103 +13,118 @@ from framework.policies.ppo3 import ppo_policy3
 from framework.policies.maddpg import maddpg_policy
 from framework.policies.ppo_rec import ppo_rec_policy
 from framework.policies.ppo3_shared import ppo_policy3_shared
+from framework.policies.ppo_rnn_shared import ppo_rnn_policy_shared
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
 
-warnings.filterwarnings("ignore")
+# warnings.filterwarnings("ignore")
 
-args = get_args()  # get arguments from command line
+if __name__ == "__main__":
+    args = get_args()  # get arguments from command line
 
-# Generate Directories##########################
-experiment_name = f"{args.model}-{args.env}-{args.experiment_name}"
-experiment_folder = os.path.join(os.path.abspath("experiments"), experiment_name)
-experiment_logs = os.path.abspath(os.path.join(experiment_folder, "result_outputs"))
-experiment_videos = os.path.abspath(os.path.join(experiment_folder, "videos"))
-experiment_saved_models = os.path.abspath(
-    os.path.join(experiment_folder, "saved_models")
-)
-
-if os.path.exists(experiment_folder):
-    shutil.rmtree(experiment_folder)
-
-os.mkdir(experiment_folder)  # create the experiment directory
-os.mkdir(experiment_logs)  # create the experiment log directory
-os.mkdir(experiment_saved_models)
-os.mkdir(experiment_videos)
-################################################
-logger = SummaryWriter(experiment_logs)
-
-print("\n*****Parameters*****")
-space = " "
-print(
-    "\n".join(
-        [
-            f"--- {param}: {(20-len(param))*space} {value}"
-            for param, value in vars(args).items()
-        ]
+    # Generate Directories##########################
+    experiment_name = f"{args.model}-{args.env}-{args.experiment_name}"
+    experiment_folder = os.path.join(os.path.abspath("experiments"), experiment_name)
+    experiment_logs = os.path.abspath(os.path.join(experiment_folder, "result_outputs"))
+    experiment_videos = os.path.abspath(os.path.join(experiment_folder, "videos"))
+    experiment_saved_models = os.path.abspath(
+        os.path.join(experiment_folder, "saved_models")
     )
-)
-print("*******************")
 
-logger.add_hparams(vars(args), {"rewards/end_reward": 0})
+    if os.path.exists(experiment_folder):
+        shutil.rmtree(experiment_folder)
 
-# set seeds
-random.seed(args.seed)
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
-torch.backends.cudnn.deterministic = args.torch_deterministic
-# setup environment ###########################################
-if args.env == "simple":
-    env = simple_v2
-elif args.env == "communication":
-    env = simple_reference_v2
-    args.n_agents = 2
-elif args.env == "communication_full":
-    env = simple_reference_v3
-    args.n_agents = 2
-elif args.env == "spread":
-    env = simple_spread_v2
-elif args.env == "adversary":
-    env = simple_adversary_v2
-env = env.parallel_env()
-env = ss.pad_observations_v0(env)
-env = ss.pettingzoo_env_to_vec_env_v1(env)
-single_env = ss.concat_vec_envs_v1(env, 1, 1)
-parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, args.num_envs)
-parrallel_env.seed(args.seed)
-obs = parrallel_env.reset()
-print(
-    f"Observation shape: {env.observation_space.shape}, Action space: {parrallel_env.action_space}, all_obs shape: {obs.shape}"
-)
-args.obs_space = env.observation_space.shape
-args.device = "cuda"
-##############################################################
+    os.mkdir(experiment_folder)  # create the experiment directory
+    os.mkdir(experiment_logs)  # create the experiment log directory
+    os.mkdir(experiment_saved_models)
+    os.mkdir(experiment_videos)
+    ################################################
+    logger = SummaryWriter(experiment_logs)
 
-############### MODEL ########################################
-if args.model == "ppo":
-    Policy = ppo_policy
-elif args.model == "ppo-rec":
-    Policy = ppo_rec_policy
-elif args.model == "maddpg":
-    Policy = maddpg_policy
-elif args.model == "ppo_policy3":
-    Policy = ppo_policy3
-elif args.model == "ppo_policy3_shared":
-    Policy = ppo_policy3_shared
-else:
-    pass
-Policy = Policy(args, logger)
-###############################################################
+    print("\n*****Parameters*****")
+    space = " "
+    print(
+        "\n".join(
+            [
+                f"--- {param}: {(20-len(param))*space} {value}"
+                for param, value in vars(args).items()
+            ]
+        )
+    )
+    print("*******************")
 
-exp = ExperimentBuilder(
-    train_environment=parrallel_env,
-    test_environment=single_env,
-    Policy=Policy,
-    experiment_name=experiment_name,
-    logfolder=experiment_videos,
-    videofolder=experiment_videos,
-    episode_len=args.episode_len,
-    logger=logger,
-)
-exp.run_experiment()
+    logger.add_hparams(vars(args), {"rewards/end_reward": 0})
+
+    # set seeds
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
+    # setup environment ###########################################
+    if args.env == "simple":
+        env = simple_v2
+        args.n_agents = 1
+    elif args.env == "communication":
+        env = simple_reference_v2
+        args.n_agents = 2
+    elif args.env == "communication_full":
+        env = simple_reference_v3
+        args.n_agents = 2
+    elif args.env == "spread":
+        env = simple_spread_v2
+    elif args.env == "adversary":
+        env = simple_adversary_v2
+    env = env.parallel_env()
+    env = ss.pad_observations_v0(env)
+    env = ss.pettingzoo_env_to_vec_env_v1(env)
+    single_env = ss.concat_vec_envs_v1(env, 1, 1)
+    parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs)
+    parrallel_env.seed(args.seed)
+    obs = parrallel_env.reset()
+    print(
+        f"Observation shape: {env.observation_space.shape}, Action space: {parrallel_env.action_space}, all_obs shape: {obs.shape}"
+    )
+    args.obs_space = env.observation_space.shape
+    args.device = "cuda"
+    ##############################################################
+
+    ############### MODEL ########################################
+    if args.model == "ppo":
+        Policy = ppo_policy
+    elif args.model == "ppo-rec":
+        Policy = ppo_rec_policy
+    elif args.model == "maddpg":
+        Policy = maddpg_policy
+    elif args.model == "ppo_policy3":
+        Policy = ppo_policy3
+    elif args.model == "ppo_policy3_shared":
+        Policy = ppo_policy3_shared
+    elif args.model == "ppo_rnn_policy_shared":
+        Policy = ppo_rnn_policy_shared
+        args.hidden_size = 64
+    else:
+        pass
+    Policy = Policy(args, logger)
+    ###############################################################
+
+    exp = ExperimentBuilder(
+        train_environment=parrallel_env,
+        test_environment=single_env,
+        Policy=Policy,
+        experiment_name=experiment_name,
+        logfolder=experiment_videos,
+        videofolder=experiment_videos,
+        episode_len=args.episode_len,
+        logger=logger,
+    )
+    print("START")
+    exp.run_experiment()
+    env.close()
+    single_env.close()
+    parrallel_env.close()
+    logger.close()
+    print("END")
+    import sys
+
+    sys.exit()

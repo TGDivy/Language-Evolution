@@ -48,6 +48,9 @@ class ppo_policy3_shared(base_policy):
 
         return action.numpy(), (value, action_p)
 
+    def action_evaluate(self, observation, new_episode):
+        return self.action(observation, new_episode=new_episode)
+
     def store(self, total_steps, obs, rewards, dones):
 
         dones = T.Tensor(dones)
@@ -226,6 +229,8 @@ class Agent:
             b_values,
             b_inds,
         ) = self.memory.create_training_data()
+        print(b_obs.shape)
+        print(b_obs[[0, 8, 16, 1, 9, 17, 2, 10, 18], 0:6])
 
         clipfracs = []
 

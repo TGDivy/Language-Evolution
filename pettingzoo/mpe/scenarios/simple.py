@@ -7,7 +7,7 @@ from .._mpe_utils.scenario import BaseScenario
 class Scenario(BaseScenario):
     def make_world(self):
         world = World()
-        world.dim_c = 1
+        world.dim_c = 10
         # add agents
         world.agents = [Agent() for i in range(1)]
         for i, agent in enumerate(world.agents):

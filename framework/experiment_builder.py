@@ -9,6 +9,7 @@ from torchvision.io import read_video
 from framework.utils.base import base_policy
 import shutil
 import numpy as np
+import sys
 
 
 class ExperimentBuilder(nn.Module):
@@ -96,7 +97,7 @@ class ExperimentBuilder(nn.Module):
             obs = env.reset()
             for i in range(episode_len - 1):
                 # time.sleep(0.5)
-                act, _ = self.Policy.action(obs, new_episode=i == 0, evaluate=True)
+                act, _ = self.Policy.action_evaluate(obs, new_episode=i == 0)
                 obs, _, _, _ = env.step(act)
         env.close()
 
@@ -122,7 +123,7 @@ class ExperimentBuilder(nn.Module):
         for _ in range(N):
             obs = env.reset()
             for i in range(self.episode_len):
-                act, _ = self.Policy.action(obs, new_episode=i == 0, evaluate=True)
+                act, _ = self.Policy.action_evaluate(obs, new_episode=i == 0)
                 obs, reward, _, _ = env.step(act)
             rewards.append(reward)
 
@@ -135,17 +136,20 @@ class ExperimentBuilder(nn.Module):
         observation = self.train_env.reset()
         rewards, dones = 0, False
 
-        steps = 300000
+        steps = 120000
 
         for step in tqdm(range(0, steps)):
             actions, (value, move_probs) = self.Policy.action(
                 observation, new_episode=step == 0
             )
 
+            # print(actions)
+
             observation, rewards, dones, infos = self.train_env.step(actions)
             # self.env.render()
 
             self.Policy.store(total_steps, observation, rewards, dones)
+            # print(dones, observation)
 
             total_steps += 1
 
@@ -156,7 +160,3 @@ class ExperimentBuilder(nn.Module):
 
             if (step + 1) % (steps // 5) == 0:
                 self.save_video(step)
-
-        self.train_env.close()
-
-        # self.save_video("final")

@@ -1,3 +1,4 @@
+from cmath import tanh
 import numpy as np
 import torch as T
 from torch import nn, no_grad
@@ -18,64 +19,82 @@ from framework.utils.base import base_policy
 from torch.utils.tensorboard import SummaryWriter
 
 
-class ppo_policy3(base_policy):
+class ppo_rnn_policy_shared(base_policy):
     def __init__(self, args, writer):
         self.args = args
 
-        self.agents = []
-        for _ in range(args.n_agents):
-            agent = Agent(args, writer)
-            self.agents.append(agent)
-        self.to_remember = {}
+        self.agent = Agent(args, writer)
+        self.to_remember = []
+
+        # fmt:off
+        self.critic_hidden = T.zeros(args.num_envs * self.args.n_agents, args.hidden_size, device=args.device)
+        self.actor_hidden = T.zeros(args.num_envs * self.args.n_agents, args.hidden_size, device=args.device)
+        
+        self.critic_hidden_test = T.zeros(self.args.n_agents, args.hidden_size, device=args.device)
+        self.actor_hidden_test = T.zeros(self.args.n_agents, args.hidden_size, device=args.device)
+        # fmt:on
 
     def add_logger(self, logger: SummaryWriter):
         self.logger = logger
 
     def action(self, observations, **kwargs):
 
-        actions = []
-        for i, obs in enumerate(observations):
-            agent = self.agents[i % len(self.agents)]
+        obs_batch = T.tensor(observations, dtype=T.float, device="cuda")
 
-            obs = observations[i]
+        (
+            action_p,
+            action,
+            value,
+            self.actor_hidden,
+            self.critic_hidden,
+        ) = self.agent.choose_action(obs_batch, self.actor_hidden, self.critic_hidden)
+        value = T.squeeze(value)
 
-            obs_batch = T.tensor(np.array([obs]), dtype=T.float, device="cuda")
+        self.to_remember = (obs_batch, action_p, action, value)
 
-            (
-                action_p,
-                action,
-                value,
-            ) = agent.choose_action(obs_batch)
-
-            self.to_remember[i] = (
-                obs_batch,
-                action_p,
-                action,
-                value,
-            )
-            actions.append(action.item())
-
-        return actions, (value, action_p)
+        return action.numpy(), (value, action_p)
 
     def action_evaluate(self, observation, new_episode):
-        return self.action(observation, new_episode=new_episode)
+        self.critic_hidden_test *= 0 if new_episode else 1
+        self.actor_hidden_test *= 0 if new_episode else 1
+        obs_batch = T.tensor(observation, dtype=T.float, device="cuda")
+        (
+            action_p,
+            action,
+            value,
+            self.actor_hidden_test,
+            self.critic_hidden_test,
+        ) = self.agent.choose_action(
+            obs_batch, self.actor_hidden_test, self.critic_hidden_test
+        )
+        value = T.squeeze(value)
+
+        self.to_remember = (obs_batch, action_p, action, value)
+
+        return action.numpy(), (value, action_p)
 
     def store(self, total_steps, obs, rewards, dones):
 
-        for i, agent in enumerate(self.agents):
-            agent.remember(
-                self.to_remember[i][0],
-                self.to_remember[i][1],
-                self.to_remember[i][2],
-                self.to_remember[i][3],
-                T.tensor(rewards[i]),
-                dones[i],
-            )
+        dones = T.Tensor(dones)
+        self.agent.remember(
+            self.to_remember[0],
+            self.to_remember[1],
+            self.to_remember[2],
+            self.to_remember[3],
+            T.tensor(rewards),
+            dones,
+            self.critic_hidden,
+            self.actor_hidden,
+        )
+        # fmt:off
+        self.critic_hidden *= dones.reshape(self.args.num_envs * self.args.n_agents, 1).to(self.args.device)
+        self.actor_hidden *= dones.reshape(self.args.num_envs * self.args.n_agents, 1).to(self.args.device)
+        # fmt:on
+        if self.agent.memory.counter == self.args.num_steps:
+            self.agent.learn(total_steps)
 
-            if agent.memory.counter == self.args.num_steps:
-                agent.learn(total_steps)
 
-
+# fmt:off
 class PPOTrainer:
     def __init__(self, args, num_steps, num_envs, obs_space, gamma, gae_lambda):
         self.args = args
@@ -95,17 +114,20 @@ class PPOTrainer:
         b_advantages = self.advantages.reshape(-1).to("cuda")
         b_returns = self.returns.reshape(-1).to("cuda")
         b_values = self.values.reshape(-1).to("cuda")
+        b_actor_hidden = self.actor_hidden.reshape(-1,self.args.hidden_size).to("cuda")
+        b_critic_hidden = self.critic_hidden.reshape(-1,self.args.hidden_size).to("cuda")
         b_inds = np.arange(self.batch_size)
-        return b_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values, b_inds
+        return b_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values, b_actor_hidden, b_critic_hidden, b_inds
 
-    def store_memory(self, observations, logprobs, action, vals, reward, done):
+    def store_memory(self,observations,logprobs,action,vals,reward,done,actor_hidden,critic_hidden):
         self.obs[self.counter] = observations[0]
-
         self.logprobs[self.counter] = logprobs
         self.actions[self.counter] = action
         self.values[self.counter] = vals
         self.rewards[self.counter] = reward
         self.dones[self.counter] = done
+        self.actor_hidden[self.counter] = actor_hidden
+        self.critic_hidden[self.counter] = critic_hidden
         self.counter += 1
 
     def calculate_returns(self):
@@ -140,7 +162,7 @@ class PPOTrainer:
         self.advantages = advantages
 
     def clear_memory(self):
-        space = (self.num_steps, self.num_envs)
+        space = (self.num_steps, self.num_envs * self.args.n_agents)
 
         self.obs = T.zeros(space + self.obs_space)
         self.logprobs = T.zeros(space)
@@ -148,7 +170,10 @@ class PPOTrainer:
         self.values = T.zeros(space)
         self.rewards = T.zeros(space)
         self.dones = T.zeros(space)
+        self.actor_hidden = T.zeros(space + (self.args.hidden_size,))
+        self.critic_hidden = T.zeros(space + (self.args.hidden_size,))
         self.counter = 0
+# fmt:on
 
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
@@ -158,17 +183,27 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class NNN(nn.Module):
-    def __init__(self, obs_shape, action_space):
+    def __init__(self, obs_shape, action_space, hidden_size):
         super(NNN, self).__init__()
+
+        inp_hid_size = hidden_size + np.array(obs_shape).prod()
+
+        self.input_to_hidden_actor = nn.Sequential(
+            layer_init(nn.Linear(inp_hid_size, hidden_size)), nn.ReLU()
+        )
+        self.input_to_hidden_critic = nn.Sequential(
+            layer_init(nn.Linear(inp_hid_size, hidden_size)), nn.ReLU()
+        )
+
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(obs_shape).prod(), 64)),
+            layer_init(nn.Linear(inp_hid_size, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
         self.actor = nn.Sequential(
-            layer_init(nn.Linear(np.array(obs_shape).prod(), 64)),
+            layer_init(nn.Linear(inp_hid_size, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
@@ -178,12 +213,30 @@ class NNN(nn.Module):
     def get_value(self, x):
         return self.critic(x)
 
-    def get_action_and_value(self, x, action=None):
-        logits = self.actor(x)
+    def get_action_and_value(self, x, hidden_actor, hidden_critic, action=None):
+        # print("*" * 100)
+        # print(x, x.shape)
+        # print(hidden_actor, hidden_actor.shape)
+        inp_hidden_actor = torch.hstack([x, hidden_actor])
+        # print(inp_hidden_actor.shape)
+        inp_hidden_critic = torch.hstack([x, hidden_critic])
+
+        new_hidden_actor = self.input_to_hidden_actor(inp_hidden_actor)
+        new_hidden_critic = self.input_to_hidden_actor(inp_hidden_critic)
+
+        logits = self.actor(inp_hidden_actor)
         probs = Categorical(logits=logits)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action), probs.entropy(), self.critic(x)
+
+        return (
+            action,
+            probs.log_prob(action),
+            probs.entropy(),
+            self.critic(inp_hidden_critic),
+            new_hidden_actor,
+            new_hidden_critic,
+        )
 
 
 class Agent:
@@ -196,7 +249,7 @@ class Agent:
 
         self.writer = writer
         action_space = 50
-        self.ppo = NNN(args.obs_space, action_space)
+        self.ppo = NNN(args.obs_space, action_space, args.hidden_size)
         self.memory = PPOTrainer(
             args,
             args.num_steps,
@@ -210,9 +263,10 @@ class Agent:
             self.ppo.parameters(), lr=args.learning_rate, eps=1e-5
         )
 
-    def remember(self, observations, action_p, action, vals, reward, done):
-        self.memory.store_memory(observations, action_p, action, vals, reward, done)
-
+    # fmt:off
+    def remember(self, observations, action_p, action, vals, reward, done, critic_h, actor_h):
+        self.memory.store_memory(observations, action_p, action, vals, reward, done, critic_h, actor_h)
+    
     def save_models(self):
         print("... saving models ...")
         self.ppo.save_checkpoint()
@@ -220,14 +274,29 @@ class Agent:
     def load_models(self):
         print("... loading models ...")
         self.ppo.load_checkpoint()
-
-    def choose_action(self, observations):
+    # fmt:on
+    def choose_action(self, observations, actor_hidden, critic_hidden):
         with torch.no_grad():
-            action, probs, entropy, value = self.ppo.get_action_and_value(observations)
+            (
+                action,
+                probs,
+                entropy,
+                value,
+                new_hidden_actor,
+                new_hidden_critic,
+            ) = self.ppo.get_action_and_value(observations, actor_hidden, critic_hidden)
 
-        return probs.cpu(), action.cpu(), value.cpu()
+        return (
+            probs.cpu(),
+            action.cpu(),
+            value.cpu(),
+            new_hidden_actor,
+            new_hidden_critic,
+        )
 
     def learn(self, global_step):
+        # print("-" * 100)
+
         args = self.args
         self.memory.calculate_returns()
         (
@@ -237,10 +306,10 @@ class Agent:
             b_advantages,
             b_returns,
             b_values,
+            b_actor_hidden,
+            b_critic_hidden,
             b_inds,
         ) = self.memory.create_training_data()
-        print(b_obs.shape)
-        print(b_obs[[0, 8, 16, 1, 9, 17, 2, 10, 18], 0:6])
 
         clipfracs = []
 
@@ -250,8 +319,11 @@ class Agent:
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue = self.ppo.get_action_and_value(
-                    b_obs[mb_inds], b_actions.long()[mb_inds]
+                _, newlogprob, entropy, newvalue, _, _ = self.ppo.get_action_and_value(
+                    b_obs[mb_inds],
+                    b_actor_hidden[mb_inds],
+                    b_critic_hidden[mb_inds],
+                    b_actions.long()[mb_inds],
                 )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
