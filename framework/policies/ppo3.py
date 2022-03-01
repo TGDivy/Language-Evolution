@@ -1,6 +1,6 @@
 import numpy as np
 import torch as T
-from torch import nn
+from torch import nn, no_grad
 from torch import optim
 import os
 import torch
@@ -19,13 +19,12 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class ppo_policy3(base_policy):
-    def __init__(self, args, num_envs, n_agents, action_space, lr, device):
+    def __init__(self, args, writer):
         self.args = args
-        self.num_envs = num_envs
 
         self.agents = []
-        for _ in range(n_agents):
-            agent = Agent(args, action_space, device, lr)
+        for _ in range(1):
+            agent = Agent(args, writer)
             self.agents.append(agent)
         self.to_remember = {}
 
@@ -53,7 +52,7 @@ class ppo_policy3(base_policy):
                 action,
                 value,
             )
-            actions.append(action.numpy())
+            actions.append(action.item())
 
         return actions, (value, action_p)
 
@@ -69,78 +68,137 @@ class ppo_policy3(base_policy):
                 dones[i],
             )
 
-            if agent.memory.counter == self.args.total_memory:
-                agent.learn()
+            if agent.memory.counter == self.args.num_steps:
+                agent.learn(total_steps)
 
 
-class PPOMemory:
-    def __init__(self, num_steps, num_envs, obs_space):
+class PPOTrainer:
+    def __init__(self, num_steps, num_envs, obs_space, gamma, gae_lambda):
         self.num_steps = num_steps
         self.num_envs = num_envs
+        self.batch_size = num_steps * num_envs
         self.obs_space = obs_space
+        self.gae = True
+        self.gamma = gamma
+        self.gae_lambda = gae_lambda
         self.clear_memory()
 
-    def generate_batches(self):
-        n_states = len(self.observations)
-        batch_start = np.arange(0, n_states, self.batch_size)
-        indices = np.arange(n_states, dtype=np.int64)
-        np.random.shuffle(indices)
-        batches = [indices[i : i + self.batch_size] for i in batch_start]
-        dic = {
-            "observations": self.observations,
-            "action": (
-                self.action_p,
-                self.action,
-            ),
-            "rewards": (
-                self.vals,
-                self.rewards,
-                self.dones,
-            ),
-            "batches": T.tensor(batches),
-        }
-
-        return dic
+    def create_training_data(self):
+        b_obs = self.obs.reshape((-1,) + self.obs_space).to("cuda")
+        b_logprobs = self.logprobs.reshape(-1).to("cuda")
+        b_actions = self.actions.reshape((-1,)).to("cuda")
+        b_advantages = self.advantages.reshape(-1).to("cuda")
+        b_returns = self.returns.reshape(-1).to("cuda")
+        b_values = self.values.reshape(-1).to("cuda")
+        b_inds = np.arange(self.batch_size)
+        return b_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values, b_inds
 
     def store_memory(self, observations, logprobs, action, vals, reward, done):
-        self.observations[self.counter] = observations[0]
+        self.obs[self.counter] = observations[0]
 
         self.logprobs[self.counter] = logprobs
-        self.action[self.counter] = action
-        self.vals[self.counter] = vals
+        self.actions[self.counter] = action
+        self.values[self.counter] = vals
         self.rewards[self.counter] = reward
         self.dones[self.counter] = done
         self.counter += 1
 
+    def calculate_returns(self):
+        with torch.no_grad():
+            if self.gae:
+                advantages = torch.zeros_like(self.rewards)
+                lastgaelam = 0
+                for t in reversed(range(self.num_steps - 1)):
+                    nextnonterminal = 1.0 - self.dones[t + 1]
+                    nextvalues = self.values[t + 1]
+                    delta = (
+                        self.rewards[t]
+                        + self.gamma * nextvalues * nextnonterminal
+                        - self.values[t]
+                    )
+                    advantages[t] = lastgaelam = (
+                        delta
+                        + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
+                    )
+                returns = advantages + self.values
+            else:
+                returns = torch.zeros_like(self.rewards)
+                for t in reversed(range(self.num_steps - 1)):
+                    nextnonterminal = 1.0 - self.dones[t + 1]
+                    next_return = returns[t + 1]
+                    returns[t] = (
+                        self.rewards[t] + self.gamma * nextnonterminal * next_return
+                    )
+                advantages = returns - self.values
+
+        self.returns = returns
+        self.advantages = advantages
+
     def clear_memory(self):
         space = (self.num_steps, self.num_envs)
 
-        self.observations = T.zeros(space + self.obs_space)
+        self.obs = T.zeros(space + self.obs_space)
         self.logprobs = T.zeros(space)
-        self.action = T.zeros(space)
-        self.vals = T.zeros(space)
+        self.actions = T.zeros(space)
+        self.values = T.zeros(space)
         self.rewards = T.zeros(space)
         self.dones = T.zeros(space)
         self.counter = 0
 
 
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+class NNN(nn.Module):
+    def __init__(self, obs_shape, action_space):
+        super(NNN, self).__init__()
+        self.critic = nn.Sequential(
+            layer_init(nn.Linear(np.array(obs_shape).prod(), 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 1), std=1.0),
+        )
+        self.actor = nn.Sequential(
+            layer_init(nn.Linear(np.array(obs_shape).prod(), 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, action_space), std=0.01),
+        )
+
+    def get_value(self, x):
+        return self.critic(x)
+
+    def get_action_and_value(self, x, action=None):
+        logits = self.actor(x)
+        probs = Categorical(logits=logits)
+        if action is None:
+            action = probs.sample()
+        return action, probs.log_prob(action), probs.entropy(), self.critic(x)
+
+
 class Agent:
     def __init__(
-        self, args, action_space, input_shape, num_layers, num_filters, device, lr
+        self,
+        args,
+        writer,
     ):
-        self.gamma = args.gamma
-        self.policy_clip = args.policy_clip
-        self.n_epochs = args.n_epochs
-        self.gae_lambda = args.gae_lambda
-        self.entropy = args.entropy
+        self.args = args
 
-        self.ppo = ACNetwork(
-            action_space[0], input_shape, num_layers, num_filters, device, lr
+        self.writer = writer
+        action_space = 5
+        self.ppo = NNN(args.obs_space, action_space)
+        self.memory = PPOTrainer(
+            args.num_steps, args.num_envs, args.obs_space, args.gamma, args.gae_lambda
         )
-        self.memory = PPOMemory(input_shape, args.batch_size, args.total_memory)
-        # self.huber = HuberLoss(reduction="mean", delta=1.0)
-        self.mse = MSELoss(reduction="mean")
-        self.device = self.ppo.device
+        self.ppo.to(args.device)
+        self.optimizer = optim.Adam(
+            self.ppo.parameters(), lr=args.learning_rate, eps=1e-5
+        )
 
     def remember(self, observations, action_p, action, vals, reward, done):
         self.memory.store_memory(observations, action_p, action, vals, reward, done)
@@ -154,99 +212,100 @@ class Agent:
         self.ppo.load_checkpoint()
 
     def choose_action(self, observations):
+        with torch.no_grad():
+            action, probs, entropy, value = self.ppo.get_action_and_value(observations)
 
-        action, value = self.ppo(observations)
+        return probs.cpu(), action.cpu(), value.cpu()
 
-        # action_dist = Categorical(action)
-        # print(action)
-        action_dist = MultivariateNormal(
-            action[0], T.eye(action.shape[1], dtype=T.float, device=self.device)
-        )
-        # print(action_dist)
-        action = action_dist.sample()
-        action_p = action_dist.log_prob(action)
+    def learn(self, global_step):
+        args = self.args
+        self.memory.calculate_returns()
+        (
+            b_obs,
+            b_logprobs,
+            b_actions,
+            b_advantages,
+            b_returns,
+            b_values,
+            b_inds,
+        ) = self.memory.create_training_data()
 
-        return action_p.cpu(), action.cpu(), value.cpu()
+        clipfracs = []
 
-    def advantage(self, reward_arr, values, dones_arr):
-        advantage = np.zeros(len(reward_arr), dtype=np.float16)
-        for t in range(len(reward_arr) - 1):
-            discount = 0.99
-            a_t = 0
-            for k in range(t, len(reward_arr) - 1):
-                a_t += discount * (
-                    reward_arr[k]
-                    + self.gamma * values[k + 1] * (1 - int(dones_arr[k]))
-                    - values[k]
+        for epoch in range(args.update_epochs):
+            np.random.shuffle(b_inds)
+            for start in range(0, args.batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = b_inds[start:end]
+
+                _, newlogprob, entropy, newvalue = self.ppo.get_action_and_value(
+                    b_obs[mb_inds], b_actions.long()[mb_inds]
                 )
-                discount *= self.gamma * self.gae_lambda
-            advantage[t] = a_t
-        advantage = T.tensor(advantage).to(self.device)
-        return advantage
+                logratio = newlogprob - b_logprobs[mb_inds]
+                ratio = logratio.exp()
 
-    def learn(self):
-        dic = self.memory.generate_batches()
-        vals_arr, reward_arr, dones_arr = dic["rewards"]
-        (action_p_arr, action_arr) = dic["action"]
-        action_p_arr = (
-            action_p_arr.clone().detach().requires_grad_(True).to(self.device)
-        )
-        action_arr = action_arr.clone().detach().requires_grad_(True).to(self.device)
-        observations_arr = (
-            dic["observations"].clone().detach().requires_grad_(True).to(self.device)
-        )
+                with torch.no_grad():
+                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
+                    # old_approx_kl = (-logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [
+                        ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                    ]
 
-        values = vals_arr.clone().detach().requires_grad_(True).to(self.device)
+                mb_advantages = b_advantages[mb_inds]
+                if args.norm_adv:
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                        mb_advantages.std() + 1e-8
+                    )
 
-        for _ in range(self.n_epochs):
-            n_states = len(observations_arr)
-            batch_start = np.arange(0, n_states, self.memory.batch_size)
-            indices = np.arange(n_states, dtype=np.int64)
-            np.random.shuffle(indices)
-            batches = [indices[i : i + self.memory.batch_size] for i in batch_start]
-
-            advantage = self.advantage(reward_arr, values, dones_arr)
-
-            for batch in batches:
-                # print("LEARNINGGG !!")
-                total_loss = 0
-                #### game inputs/states
-                observations = observations_arr[batch]
-                adv = advantage[batch]
-                #### action
-                actions = action_arr[batch]
-                old_probs = action_p_arr[batch]
-                #### Actor Critic Run
-                action, critic_value = self.ppo(observations)
-
-                #### Critic Loss
-                critic_value = T.squeeze(critic_value)
-                returns = adv - values[batch]
-
-                critic_loss = self.mse(critic_value, returns)
-                total_loss += critic_loss * 0.5
-
-                #### Unit, City Actors Loss
-                # dist = Categorical(action)
-                dist = MultivariateNormal(
-                    action[0], T.eye(action.shape[1], dtype=T.float, device=self.device)
+                pg_loss1 = -mb_advantages * ratio
+                pg_loss2 = -mb_advantages * torch.clamp(
+                    ratio, 1 - args.clip_coef, 1 + args.clip_coef
                 )
-                new_probs = dist.log_prob(actions)[:, None]
-                # print(new_probs.shape, old_probs.shape)
-                prob_ratio = (new_probs - old_probs).exp()
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                newvalue = newvalue.view(-1)
+                if args.clip_vloss:
+                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                    v_clipped = b_values[mb_inds] + torch.clamp(
+                        newvalue - b_values[mb_inds],
+                        -args.clip_coef,
+                        args.clip_coef,
+                    )
+                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                    v_loss = 0.5 * v_loss_max.mean()
+                else:
+                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
-                weighted_probs = prob_ratio * adv.reshape(-1, 1)
-                weighted_clipped_probs = T.clamp(
-                    prob_ratio, 1 - self.policy_clip, 1 + self.policy_clip
-                ) * adv.reshape(-1, 1)
+                entropy_loss = entropy.mean()
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
-                actor_loss = -T.min(weighted_probs, weighted_clipped_probs).mean()
+                self.optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.ppo.parameters(), args.max_grad_norm)
+                self.optimizer.step()
 
-                total_loss += actor_loss
-                total_loss += self.entropy * T.mean(dist.entropy())
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        var_y = np.var(y_true)
+        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-                total_loss.backward()
-                self.ppo.optimizer.step()
-                self.ppo.optimizer.zero_grad()
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        var_y = np.var(y_true)
+        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+
+        # TRY NOT TO MODIFY: record rewards for plotting purposes
+        self.writer.add_scalar(
+            "charts/learning_rate", self.optimizer.param_groups[0]["lr"], global_step
+        )
+        self.writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
+        self.writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
+        self.writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
+        self.writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
+        self.writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
+        self.writer.add_scalar("losses/explained_variance", explained_var, global_step)
+        # print("SPS:", int(global_step / (time.time() - start_time)))
+        # self.writer.add_scalar(
+        #     "charts/SPS", int(global_step / (time.time() - start_time)), global_step
+        # )
 
         self.memory.clear_memory()

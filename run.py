@@ -3,17 +3,12 @@ from framework.utils.arg_extractor import get_args
 import numpy as np
 import random
 import torch
-from pettingzoo.mpe import (
-    simple_v2,
-    simple_reference_v2,
-    simple_reference_v3,
-    simple_push_v2,
-    simple_spread_v2,
-    simple_adversary_v2,
-)
+from pettingzoo.mpe import simple_v2, simple_reference_v2, simple_reference_v3
+
 import shutil
 import supersuit as ss
 from framework.policies.ppo import ppo_policy
+from framework.policies.ppo3 import ppo_policy3
 from framework.policies.maddpg import maddpg_policy
 from framework.policies.ppo_rec import ppo_rec_policy
 import os
@@ -71,15 +66,17 @@ elif args.env == "spread":
     env = simple_spread_v2
 elif args.env == "adversary":
     env = simple_adversary_v2
-env = env.parallel_env(args.episode_len, continuous_actions=False)
-
-
+env = env.parallel_env()
 env = ss.pad_observations_v0(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
 parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, args.num_envs)
 parrallel_env.seed(args.seed)
 obs = parrallel_env.reset()
-print(f"Observation shape: {obs.shape}, Action space: {parrallel_env.action_space}")
+print(
+    f"Observation shape: {env.observation_space.shape}, Action space: {parrallel_env.action_space}"
+)
+args.obs_space = env.observation_space.shape
+args.device = "cuda"
 ##############################################################
 
 ############### MODEL ########################################
@@ -89,27 +86,20 @@ elif args.model == "ppo-rec":
     Policy = ppo_rec_policy
 elif args.model == "maddpg":
     Policy = maddpg_policy
+elif args.model == "ppo_policy3":
+    Policy = ppo_policy3
 else:
     pass
-Policy = Policy(
-    args,
-    num_agents,
-    action_space,
-    obs.shape,
-    args.num_layers,
-    args.num_filters,
-    args.lr,
-    args.device,
-)
+Policy = Policy(args, logger)
 ###############################################################
 
 exp = ExperimentBuilder(
-    environment=env,
+    train_environment=parrallel_env,
+    test_environment=env,
     Policy=Policy,
     experiment_name=experiment_name,
     logfolder=experiment_videos,
     videofolder=experiment_videos,
-    n_episodes=args.n_episodes,
     episode_len=args.episode_len,
     logger=logger,
 )

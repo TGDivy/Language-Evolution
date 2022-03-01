@@ -237,17 +237,19 @@ if __name__ == "__main__":
 
         # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            # next_value = agent.get_value(next_obs).reshape(1, -1)
+            # print(next_value.shape)
+            # print("value shape printed")
             if args.gae:
                 advantages = torch.zeros_like(rewards).to(device)
                 lastgaelam = 0
-                for t in reversed(range(args.num_steps)):
-                    if t == args.num_steps - 1:
-                        nextnonterminal = 1.0 - next_done
-                        nextvalues = next_value
-                    else:
-                        nextnonterminal = 1.0 - dones[t + 1]
-                        nextvalues = values[t + 1]
+                for t in reversed(range(args.num_steps - 1)):
+                    # if t == args.num_steps - 1:
+                    #     nextnonterminal = 1.0 - next_done
+                    #     nextvalues = next_value
+                    # else:
+                    nextnonterminal = 1.0 - dones[t + 1]
+                    nextvalues = values[t + 1]
                     delta = (
                         rewards[t]
                         + args.gamma * nextvalues * nextnonterminal
