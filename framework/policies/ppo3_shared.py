@@ -82,7 +82,7 @@ class PPOTrainer:
     def create_training_data(self):
         b_obs = self.obs.reshape((-1,) + self.obs_space).to("cuda")
         b_logprobs = self.logprobs.reshape(-1).to("cuda")
-        b_actions = self.actions.reshape((-1,)).to("cuda")
+        b_actions = self.actions.reshape(-1).to("cuda")
         b_advantages = self.advantages.reshape(-1).to("cuda")
         b_returns = self.returns.reshape(-1).to("cuda")
         b_values = self.values.reshape(-1).to("cuda")
@@ -90,7 +90,7 @@ class PPOTrainer:
         return b_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values, b_inds
 
     def store_memory(self, observations, logprobs, action, vals, reward, done):
-        self.obs[self.counter] = observations[0]
+        self.obs[self.counter] = observations
         self.logprobs[self.counter] = logprobs
         self.actions[self.counter] = action
         self.values[self.counter] = vals
@@ -291,10 +291,6 @@ class Agent:
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
-        var_y = np.var(y_true)
-        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
-
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         self.writer.add_scalar(
             "charts/learning_rate", self.optimizer.param_groups[0]["lr"], global_step
@@ -305,9 +301,5 @@ class Agent:
         self.writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         self.writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         self.writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        # print("SPS:", int(global_step / (time.time() - start_time)))
-        # self.writer.add_scalar(
-        #     "charts/SPS", int(global_step / (time.time() - start_time)), global_step
-        # )
 
         self.memory.clear_memory()

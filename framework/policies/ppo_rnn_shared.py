@@ -120,7 +120,7 @@ class PPOTrainer:
         return b_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values, b_actor_hidden, b_critic_hidden, b_inds
 
     def store_memory(self,observations,logprobs,action,vals,reward,done,actor_hidden,critic_hidden):
-        self.obs[self.counter] = observations[0]
+        self.obs[self.counter] = observations
         self.logprobs[self.counter] = logprobs
         self.actions[self.counter] = action
         self.values[self.counter] = vals
@@ -250,6 +250,7 @@ class Agent:
         self.writer = writer
         action_space = 50
         self.ppo = NNN(args.obs_space, action_space, args.hidden_size)
+        print(self.ppo)
         self.memory = PPOTrainer(
             args,
             args.num_steps,

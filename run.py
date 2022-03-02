@@ -18,7 +18,7 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
 
-# warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
     args = get_args()  # get arguments from command line
@@ -116,15 +116,16 @@ if __name__ == "__main__":
         logfolder=experiment_videos,
         videofolder=experiment_videos,
         episode_len=args.episode_len,
+        steps=args.total_timesteps,
         logger=logger,
     )
-    print("START")
+    # print("START")
     exp.run_experiment()
     env.close()
     single_env.close()
     parrallel_env.close()
     logger.close()
-    print("END")
+    # print("END")
     import sys
 
     sys.exit()

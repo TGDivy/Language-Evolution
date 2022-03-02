@@ -22,6 +22,7 @@ class ExperimentBuilder(nn.Module):
         logfolder,
         videofolder,
         episode_len,
+        steps,
         logger: SummaryWriter,
     ):
         super(ExperimentBuilder, self).__init__()
@@ -31,6 +32,7 @@ class ExperimentBuilder(nn.Module):
         self.train_env = train_environment
         self.test_env = test_environment
         self.episode_len = episode_len
+        self.steps = steps
         print("System learnable parameters")
         for name, value in self.named_parameters():
             print(name, value.shape)
@@ -136,9 +138,7 @@ class ExperimentBuilder(nn.Module):
         observation = self.train_env.reset()
         rewards, dones = 0, False
 
-        steps = 120000
-
-        for step in tqdm(range(0, steps)):
+        for step in tqdm(range(0, self.steps)):
             actions, (value, move_probs) = self.Policy.action(
                 observation, new_episode=step == 0
             )
@@ -158,5 +158,5 @@ class ExperimentBuilder(nn.Module):
             if (step + 1) % (10000) == 0:
                 self.score(step)
 
-            if (step + 1) % (steps // 5) == 0:
+            if (step + 1) % (self.steps // 5) == 0:
                 self.save_video(step)
