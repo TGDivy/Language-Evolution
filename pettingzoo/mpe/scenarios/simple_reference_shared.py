@@ -66,37 +66,25 @@ class Scenario(BaseScenario):
         # goal color
         goal_color = [np.zeros(world.dim_color), np.zeros(world.dim_color)]
         if agent.goal_b is not None:
+            goal_color[0] = agent.goal_a.color
             goal_color[1] = agent.goal_b.color
 
         # get positions of all entities in this agent's reference frame
-        entity_pos = []
+        landmark_info = []
         for entity in world.landmarks:
-            entity_pos.append(entity.state.p_pos - agent.state.p_pos)
-        # entity colors
-        entity_color = []
-        for entity in world.landmarks:
-            entity_color.append(entity.color)
-        # communication and actions of all other agents
-        comm = []
-        actions = []
+            landmark_info.append(entity.state.p_pos - agent.state.p_pos)
+            landmark_info.append(entity.color)
+
+        # Other agent info
+        other_agent_info = []
         for other in world.agents:
             if other is agent:
                 continue
-            comm.append(other.state.c)
-            actions.append(other.state.p_vel)
-            actions.append(other.state.p_pos - agent.state.p_pos)
-        if len(world.actions) >= 2:
-            actions.append(world.actions[-1])
-            actions.append(world.actions[-2])
-        else:
-            actions.append(np.array([0.0, 0]))
-            actions.append(np.array([0.0, 0]))
+            other_agent_info.append(other.state.p_pos - agent.state.p_pos)
+            other_agent_info.append(other.state.p_vel)
+            other_agent_info.append(other.color)
+            other_agent_info.append(other.state.c)
 
         return np.concatenate(
-            [agent.state.p_vel]
-            + entity_color
-            + entity_pos
-            + actions
-            + [goal_color[1]]
-            + comm
+            landmark_info + other_agent_info + [agent.state.p_vel] + goal_color
         )
