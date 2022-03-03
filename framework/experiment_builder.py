@@ -99,7 +99,7 @@ class ExperimentBuilder(nn.Module):
             obs = env.reset()
             for i in range(episode_len - 1):
                 # time.sleep(0.5)
-                act, _ = self.Policy.action_evaluate(obs, new_episode=i == 0)
+                act = self.Policy.action_evaluate(obs, new_episode=i == 0)
                 obs, _, _, _ = env.step(act)
         env.close()
 
@@ -125,7 +125,7 @@ class ExperimentBuilder(nn.Module):
         for _ in range(N):
             obs = env.reset()
             for i in range(self.episode_len):
-                act, _ = self.Policy.action_evaluate(obs, new_episode=i == 0)
+                act = self.Policy.action_evaluate(obs, new_episode=i == 0)
                 obs, reward, _, _ = env.step(act)
             rewards.append(reward)
 
@@ -139,9 +139,7 @@ class ExperimentBuilder(nn.Module):
         rewards, dones = 0, False
 
         for step in tqdm(range(0, self.steps)):
-            actions, (value, move_probs) = self.Policy.action(
-                observation, new_episode=step == 0
-            )
+            actions = self.Policy.action(observation, new_episode=step == 0)
 
             # print(actions)
 

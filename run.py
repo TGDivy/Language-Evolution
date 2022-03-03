@@ -14,6 +14,8 @@ from framework.policies.maddpg import maddpg_policy
 from framework.policies.ppo_rec import ppo_rec_policy
 from framework.policies.ppo3_shared import ppo_policy3_shared
 from framework.policies.ppo_rnn_shared import ppo_rnn_policy_shared
+from framework.policies.ppo_shared_critic import ppo_shared_critic
+
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
@@ -62,6 +64,7 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     # setup environment ###########################################
+    args.n_agents = 1
     if args.env == "simple":
         env = simple_v2
         args.n_agents = 1
@@ -103,7 +106,9 @@ if __name__ == "__main__":
     elif args.model == "ppo_rnn_policy_shared":
         Policy = ppo_rnn_policy_shared
         args.hidden_size = 64
-    else:
+    elif args.model == "ppo_shared_critic":
+        Policy = ppo_shared_critic
+        args.hidden_size = 64
         pass
     Policy = Policy(args, logger)
     ###############################################################

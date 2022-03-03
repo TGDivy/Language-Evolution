@@ -56,8 +56,8 @@ class Scenario(BaseScenario):
         if agent.goal_a is None or agent.goal_b is None:
             agent_reward = 0.0
         else:
-            agent_reward = np.linalg.norm(
-                agent.goal_a.state.p_pos - agent.goal_b.state.p_pos
+            agent_reward = np.sqrt(
+                np.sum(np.square(agent.goal_a.state.p_pos - agent.goal_b.state.p_pos))
             )
         return -agent_reward
 
@@ -74,9 +74,7 @@ class Scenario(BaseScenario):
         # get positions of all entities in this agent's reference frame
         entity_pos = []
         for entity in world.landmarks:
-            # entity_pos.append(entity.state.p_pos - agent.state.p_pos)
-            entity_pos.append(entity.state.p_pos)
-
+            entity_pos.append(entity.state.p_pos - agent.state.p_pos)
         # entity colors
         entity_color = []
         for entity in world.landmarks:
@@ -87,6 +85,4 @@ class Scenario(BaseScenario):
             if other is agent:
                 continue
             comm.append(other.state.c)
-        return np.concatenate(
-            [agent.state.p_vel] + entity_color + entity_pos + [goal_color[1]] + comm
-        )
+        return np.concatenate([agent.state.p_vel] + entity_pos + [goal_color[1]] + comm)
