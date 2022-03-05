@@ -172,7 +172,7 @@ class ExperimentBuilder(nn.Module):
             if (step + 1) % (self.steps // 5) == 0:
                 self.save_video(step)
 
-        self.save_video("final", N=10)
+        self.save_video("final", N=30)
 
         self.logger.add_hparams(
             {

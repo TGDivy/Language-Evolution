@@ -208,8 +208,8 @@ class NNN(nn.Module):
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
-            layer_init(nn.Linear(layer_filters, layer_filters)),
-            act_fn(),
+            # layer_init(nn.Linear(layer_filters, layer_filters)),
+            # act_fn(),
             layer_init(nn.Linear(layer_filters, 1), std=1.0),
         )
         self.actor = nn.Sequential(
