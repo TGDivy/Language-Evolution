@@ -19,7 +19,7 @@ from framework.utils.base import base_policy
 from torch.utils.tensorboard import SummaryWriter
 
 
-class ppo_shared_global_critic_iactor(base_policy):
+class ppo_shared_global_critic_rec(base_policy):
     def __init__(self, args, writer):
         self.args = args
 
