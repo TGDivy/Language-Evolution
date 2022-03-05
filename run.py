@@ -68,28 +68,26 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     # setup environment ###########################################
-    args.n_agents = 1
     if args.env == "simple":
         env = simple_v2
-        args.n_agents = 1
     elif args.env == "communication":
         env = simple_reference_v2
-        args.n_agents = 2
     # elif args.env == "communication_full":
     #     env = simple_reference_v3
     #     args.n_agents = 2
     elif args.env == "spread":
         env = simple_spread_v2
-        args.n_agents = 3
     # elif args.env == "adversary":
     #     env = simple_adversary_v2
     env = env.parallel_env()
+    args.n_agents = env.max_num_agents
     env = ss.pad_observations_v0(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
     single_env = ss.concat_vec_envs_v1(env, 1, 1)
     parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, min(8, args.num_envs))
     parrallel_env.seed(args.seed)
     obs = parrallel_env.reset()
+    args.action_space = parrallel_env.action_space.n
     print(
         f"Observation shape: {env.observation_space.shape}, Action space: {parrallel_env.action_space}, all_obs shape: {obs.shape}"
     )
@@ -134,13 +132,11 @@ if __name__ == "__main__":
         steps=args.total_timesteps,
         logger=logger,
     )
-    # print("START")
     exp.run_experiment()
     env.close()
     single_env.close()
     parrallel_env.close()
     logger.close()
-    # print("END")
     import sys
 
     sys.exit()

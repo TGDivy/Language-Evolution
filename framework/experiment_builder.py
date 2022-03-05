@@ -132,7 +132,7 @@ class ExperimentBuilder(nn.Module):
             for i in range(self.episode_len):
                 act = self.Policy.action_evaluate(obs, new_episode=i == 0)
                 obs, reward, _, _ = env.step(act)
-                rewards.append(reward)
+                rewards.append(np.mean(reward))
             mean_episode_reward.append(np.sum(rewards))
             end_rewards.append(reward)
             for i, r in enumerate(reward):
@@ -149,7 +149,7 @@ class ExperimentBuilder(nn.Module):
         if self.best_score < np.mean(end_rewards):
             self.best_score = np.mean(end_rewards)
 
-        env.close()
+        # env.close()
 
     def run_experiment(self):
 
