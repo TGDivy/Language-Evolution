@@ -15,6 +15,7 @@ import sys
 class ExperimentBuilder(nn.Module):
     def __init__(
         self,
+        args,
         train_environment,
         test_environment,
         Policy: base_policy,
@@ -28,7 +29,7 @@ class ExperimentBuilder(nn.Module):
         super(ExperimentBuilder, self).__init__()
 
         self.Policy = Policy
-
+        self.args = args
         self.train_env = train_environment
         self.test_env = test_environment
         self.episode_len = episode_len
@@ -42,6 +43,8 @@ class ExperimentBuilder(nn.Module):
         self.experiment_videos = videofolder
 
         self.logger = logger
+
+        self.best_score = -1000
 
     def save_model(self, model_save_dir, model_save_name, index):
         """
@@ -120,15 +123,32 @@ class ExperimentBuilder(nn.Module):
     def score(self, step):
         N = 50
         env = self.test_env
-        rewards = []
+        end_rewards = []
+        mean_episode_reward = []
+        agent_end_reward = [[] for i in range(self.args.n_agents)]
         for _ in range(N):
             obs = env.reset()
+            rewards = []
             for i in range(self.episode_len):
                 act = self.Policy.action_evaluate(obs, new_episode=i == 0)
                 obs, reward, _, _ = env.step(act)
-            rewards.append(reward)
+                rewards.append(reward)
+            mean_episode_reward.append(np.sum(rewards))
+            end_rewards.append(reward)
+            for i, r in enumerate(reward):
+                agent_end_reward[i].append(r)
 
-        self.logger.add_scalar("losses/End_Reward_validation", np.mean(rewards), step)
+        self.logger.add_scalar(f"validation/End_reward", np.mean(end_rewards), step)
+        self.logger.add_scalar(
+            "validation/Episode_return", np.mean(mean_episode_reward), step
+        )
+
+        for i, ereward in enumerate(agent_end_reward):
+            self.logger.add_scalar(f"validation/agent_{i}", np.mean(ereward), step)
+
+        if self.best_score < np.mean(end_rewards):
+            self.best_score = np.mean(end_rewards)
+
         env.close()
 
     def run_experiment(self):
@@ -140,21 +160,26 @@ class ExperimentBuilder(nn.Module):
         for step in tqdm(range(0, self.steps)):
             actions = self.Policy.action(observation, new_episode=step == 0)
 
-            # print(actions)
-
             observation, rewards, dones, infos = self.train_env.step(actions)
-            # self.env.render()
 
             self.Policy.store(total_steps, observation, rewards, dones)
-            # print(dones, observation)
 
             total_steps += 1
-
-            # self.logger.add_scalar("stats/move_prob", move_probs.exp(), total_steps)
 
             if (step) % (self.steps // 50) == 0:
                 self.score(step)
 
             if (step + 1) % (self.steps // 5) == 0:
                 self.save_video(step)
+
         self.save_video("final", N=10)
+
+        self.logger.add_hparams(
+            {
+                v: k
+                for v, k in vars(self.args).items()
+                if type(k) in [str, bool, int, float]
+            },
+            {"validation/best": self.best_score},
+            run_name="hparms",
+        )

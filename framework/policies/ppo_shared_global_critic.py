@@ -271,7 +271,7 @@ class Agent:
         self.args = args
 
         self.writer = writer
-        action_space = 35
+        action_space = 50
         self.ppo = NNN(args.obs_space, args.n_agents, action_space, args.hidden_size)
         print(self.ppo)
         self.memory = PPOTrainer(

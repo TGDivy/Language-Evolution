@@ -60,7 +60,7 @@ if __name__ == "__main__":
     )
     print("*******************")
 
-    logger.add_hparams(vars(args), {"rewards/end_reward": 0})
+    # logger.add_hparams(vars(args), {"rewards/end_reward": 0})
 
     # set seeds
     random.seed(args.seed)
@@ -75,14 +75,14 @@ if __name__ == "__main__":
     elif args.env == "communication":
         env = simple_reference_v2
         args.n_agents = 2
-    elif args.env == "communication_full":
-        env = simple_reference_v3
-        args.n_agents = 2
+    # elif args.env == "communication_full":
+    #     env = simple_reference_v3
+    #     args.n_agents = 2
     elif args.env == "spread":
         env = simple_spread_v2
         args.n_agents = 3
-    elif args.env == "adversary":
-        env = simple_adversary_v2
+    # elif args.env == "adversary":
+    #     env = simple_adversary_v2
     env = env.parallel_env()
     env = ss.pad_observations_v0(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
@@ -123,6 +123,7 @@ if __name__ == "__main__":
     ###############################################################
 
     exp = ExperimentBuilder(
+        args=args,
         train_environment=parrallel_env,
         test_environment=single_env,
         Policy=Policy,

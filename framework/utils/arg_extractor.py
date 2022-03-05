@@ -26,7 +26,7 @@ def get_args():
 
     # Algorithm specific arguments
     parser.add_argument("--num-envs",type=int,default=4,help="the number of parallel game environments",)
-    parser.add_argument("--num-steps",type=int,default=128,help="the number of steps to run in each environment per policy rollout",)
+    parser.add_argument("--num-steps",type=int,default=25,help="the number of steps to run in each environment per policy rollout",)
     parser.add_argument("--anneal-lr",type=lambda x: bool(strtobool(x)),default=True,nargs="?",const=True,help="Toggle learning rate annealing for policy and value networks")
     parser.add_argument("--gae",type=lambda x: bool(strtobool(x)),default=True,nargs="?",const=True,help="Use GAE for advantage computation",)
     parser.add_argument("--gamma", type=float, default=0.99, help="the discount factor gamma")
@@ -42,25 +42,9 @@ def get_args():
     parser.add_argument("--max-grad-norm",type=float,default=0.5,help="the maximum norm for the gradient clipping")
     parser.add_argument("--target-kl",type=float,default=None,help="the target KL divergence threshold")
 
-    parser.add_argument(
-        "--model",
-        nargs="?",
-        type=str,
-        help="Policy to be used",
-    )
-    parser.add_argument(
-        "--experiment_name",
-        nargs="?",
-        type=str,
-        default="exp_1",
-        help="Experiment name - to be used for building the experiment folder",
-    )
-    parser.add_argument(
-        "--env",
-        type=str,
-        default="simple",
-        help="environment for agent",
-    )
+    parser.add_argument("--model",nargs="?",type=str,help="Policy to be used")
+    parser.add_argument("--experiment_name",nargs="?",type=str,default="exp_1",help="Experiment name - to be used for building the experiment folder")
+    parser.add_argument("--env",type=str,default="simple",help="environment for agent",)
     parser.add_argument("--episode_len", type=int, default=25)
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
