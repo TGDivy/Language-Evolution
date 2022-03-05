@@ -1,1 +1,0 @@
-python run.py --model "ppo" --env "simple" --experiment_name "fun-contv2" --total_memory 9 --episode_len 25 --batch_size 3 --n_episodes 1000 --num_layers 3 --num_filters 128 --communicate 0 --n_epochs 3

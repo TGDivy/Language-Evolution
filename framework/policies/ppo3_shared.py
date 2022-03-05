@@ -45,8 +45,9 @@ class ppo_policy3_shared(base_policy):
             action,
             value,
         )
+        # print(action, action.shape)
 
-        return action.numpy(), (value, action_p)
+        return action.numpy()  # , (value, action_p)
 
     def action_evaluate(self, observation, new_episode):
         return self.action(observation, new_episode=new_episode)
@@ -72,7 +73,7 @@ class PPOTrainer:
         self.args = args
         self.num_steps = num_steps
         self.num_envs = num_envs
-        self.batch_size = num_steps * num_envs
+        self.batch_size = args.batch_size
         self.obs_space = obs_space
         self.gae = True
         self.gamma = gamma
@@ -185,7 +186,7 @@ class Agent:
         self.args = args
 
         self.writer = writer
-        action_space = 50
+        action_space = 5
         self.ppo = NNN(args.obs_space, action_space)
         self.memory = PPOTrainer(
             args,

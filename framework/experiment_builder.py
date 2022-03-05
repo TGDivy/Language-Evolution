@@ -81,7 +81,7 @@ class ExperimentBuilder(nn.Module):
     def logging(self):
         pass
 
-    def save_video(self, id):
+    def save_video(self, id, N=2):
         import time
 
         episode_len = self.episode_len
@@ -92,7 +92,6 @@ class ExperimentBuilder(nn.Module):
             video_length=episode_len - 1,
             name_prefix=f"{self.experiment_name}-{id}",
         )
-        N = 2
         import time
 
         for _ in range(N):
@@ -153,8 +152,9 @@ class ExperimentBuilder(nn.Module):
 
             # self.logger.add_scalar("stats/move_prob", move_probs.exp(), total_steps)
 
-            if (step + 1) % (10000) == 0:
+            if (step) % (self.steps // 50) == 0:
                 self.score(step)
 
             if (step + 1) % (self.steps // 5) == 0:
                 self.save_video(step)
+        self.save_video("final", N=10)

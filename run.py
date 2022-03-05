@@ -4,7 +4,11 @@ from framework.utils.arg_extractor import get_args
 import numpy as np
 import random
 import torch
-from pettingzoo.mpe import simple_v2, simple_reference_v2, simple_reference_v3
+from pettingzoo.mpe import (
+    simple_v2,
+    simple_reference_v2,
+    simple_spread_v2,
+)
 
 import shutil
 import supersuit as ss
@@ -15,7 +19,7 @@ from framework.policies.ppo_rec import ppo_rec_policy
 from framework.policies.ppo3_shared import ppo_policy3_shared
 from framework.policies.ppo_rnn_shared import ppo_rnn_policy_shared
 from framework.policies.ppo_shared_critic import ppo_shared_critic
-
+from framework.policies.ppo_shared_global_critic import ppo_shared_global_critic
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
@@ -76,13 +80,14 @@ if __name__ == "__main__":
         args.n_agents = 2
     elif args.env == "spread":
         env = simple_spread_v2
+        args.n_agents = 3
     elif args.env == "adversary":
         env = simple_adversary_v2
     env = env.parallel_env()
     env = ss.pad_observations_v0(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
     single_env = ss.concat_vec_envs_v1(env, 1, 1)
-    parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs)
+    parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, min(8, args.num_envs))
     parrallel_env.seed(args.seed)
     obs = parrallel_env.reset()
     print(
@@ -90,6 +95,8 @@ if __name__ == "__main__":
     )
     args.obs_space = env.observation_space.shape
     args.device = "cuda"
+    args.batch_size *= args.n_agents
+    args.minibatch_size = int(args.batch_size // args.num_minibatches)
     ##############################################################
 
     ############### MODEL ########################################
@@ -109,7 +116,9 @@ if __name__ == "__main__":
     elif args.model == "ppo_shared_critic":
         Policy = ppo_shared_critic
         args.hidden_size = 64
-        pass
+    elif args.model == "ppo_shared_global_critic":
+        Policy = ppo_shared_global_critic
+        args.hidden_size = 64
     Policy = Policy(args, logger)
     ###############################################################
 

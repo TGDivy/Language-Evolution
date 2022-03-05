@@ -19,7 +19,7 @@ from framework.utils.base import base_policy
 from torch.utils.tensorboard import SummaryWriter
 
 
-class ppo_shared_critic(base_policy):
+class ppo_shared_global_critic(base_policy):
     def __init__(self, args, writer):
         self.args = args
 
@@ -28,94 +28,84 @@ class ppo_shared_critic(base_policy):
         self.idx_starts = np.array([i * args.n_agents for i in range(0, args.num_envs)])
 
         # fmt:off
-        self.actor_hidden = T.zeros(self.args.n_agents, args.num_envs, args.hidden_size, device=args.device)
+        self.actor_hidden = T.zeros(self.args.n_agents * args.num_envs, args.hidden_size, device=args.device)
         self.actor_hidden_test = T.zeros(self.args.n_agents, args.hidden_size, device=args.device)
-        self.critic_hidden = T.zeros(self.args.n_agents, args.num_envs, args.hidden_size, device=args.device)
-        self.critic_hidden_test = T.zeros(self.args.n_agents, args.hidden_size, device=args.device)
         # fmt:on
 
     def action(self, observations, **kwargs):
         self.to_remember = []
-        actions = []
-        val_obs = T.tensor(observations, device="cuda")
-        val_obs = T.hstack([val_obs[self.idx_starts + i] for i in range(self.n_agents)])
-        for i in range(self.n_agents):
 
-            obs_batch = T.tensor(
-                observations[self.idx_starts + i], dtype=T.float, device="cuda"
-            )
+        val_obs_ = T.tensor(observations).reshape(self.args.num_envs, self.n_agents, -1)
+        val_obs = T.zeros(
+            (self.args.num_envs * self.n_agents, self.args.obs_space[0] * self.n_agents)
+        )
 
-            (
-                action_p,
-                action,
-                value,
-                self.actor_hidden[i],
-                self.critic_hidden[i],
-            ) = self.agent.choose_action(
-                obs_batch, val_obs, i, self.actor_hidden[i], self.critic_hidden[i]
-            )
-            value = T.squeeze(value)
+        for i in range(self.args.num_envs * self.n_agents):
+            an = i % self.n_agents
+            av = i // self.n_agents
+            full_obs = []
+            for k in range(self.n_agents):
+                full_obs.append(val_obs_[av][(k + an) % self.n_agents])
+            # print(i)
+            # print(full_obs)
+            # print(T.hstack(full_obs))
+            val_obs[i] = T.hstack(full_obs)
+        # print(val_obs_.shape)
+        # print(val_obs_)
+        # print(val_obs_[0][0])
+        # print(val_obs_[0][1])
+        # print(observations)
+        # print(val_obs)
+        # print("--" * 25)
+        # val_obs = T.hstack([val_obs[self.idx_starts + i] for i in range(self.n_agents)])
+        # val_obs = T.vstack([val_obs, val_obs])
+        val_obs = val_obs.to("cuda")
 
-            self.to_remember.append((obs_batch, action_p, action, value, val_obs))
-            actions.append(action.numpy())
+        obs = T.tensor(observations, dtype=T.float, device="cuda")
 
-        all_actions = []
-        for i in range(len(self.idx_starts)):
-            for a in actions:
-                all_actions.append(a[i])
+        (
+            action_p,
+            actions,
+            value,
+            self.actor_hidden,
+        ) = self.agent.choose_action(obs, val_obs, self.actor_hidden)
 
-        return all_actions
+        value = T.squeeze(value)
+
+        self.to_remember = (obs, val_obs, action_p, actions, value)
+
+        return actions.numpy()
 
     def action_evaluate(self, observations, new_episode):
         self.actor_hidden_test *= 0 if new_episode else 1
-        self.to_remember = []
-        actions = []
-        val_obs = T.tensor(observations, device="cuda")
-        val_obs = T.concat([val_obs[i] for i in range(self.n_agents)])
-        for i in range(self.n_agents):
 
-            obs_batch = T.tensor(observations[i], dtype=T.float, device="cuda")
+        obs_batch = T.tensor(observations, dtype=T.float, device="cuda")
 
-            (
-                action_p,
-                action,
-                value,
-                self.actor_hidden_test[i],
-                self.critic_hidden_test[i],
-            ) = self.agent.choose_action(
-                obs_batch,
-                val_obs,
-                i,
-                self.actor_hidden_test[i],
-                self.critic_hidden_test[i],
-            )
+        (actions, self.actor_hidden_test) = self.agent.choose_action_evaluate(
+            obs_batch, self.actor_hidden_test
+        )
 
-            actions.append(action.item())
-        # print(actions)
-        return actions
+        return actions.numpy()
 
     def store(self, total_steps, obs, rewards, dones):
 
-        for i, to_rem in enumerate(self.to_remember):
-            done = T.Tensor(dones[self.idx_starts + i])
-            reward = T.tensor(rewards[self.idx_starts + i])
-            self.agent.remember(
-                i,
-                to_rem[0],
-                to_rem[1],
-                to_rem[2],
-                to_rem[3],
-                to_rem[4],
-                reward,
-                done,
-                self.actor_hidden[i],
-                self.critic_hidden[i],
-            )
-            # fmt:off
-            self.actor_hidden *= done.reshape(-1,1).to(self.args.device)
-            # fmt:on
+        done = T.Tensor(dones)
+        reward = T.tensor(rewards)
+        self.agent.remember(
+            self.to_remember[0],  # obs
+            self.to_remember[1],  # valobs
+            self.to_remember[2],  # action_p
+            self.to_remember[3],  # actions
+            self.to_remember[4],  # value
+            reward,
+            done,
+            self.actor_hidden,
+        )
+        # fmt:off
+        self.actor_hidden *= done.reshape(-1,1).to(self.args.device)
+        # fmt:on
 
-        if (self.agent.memory.counter // self.n_agents) == self.args.num_steps:
+        if (self.agent.memory.counter) == self.args.num_steps:
             self.agent.learn(total_steps)
 
 
@@ -125,59 +115,56 @@ class PPOTrainer:
         self.args = args
         self.num_steps = num_steps
         self.num_envs = num_envs
-        self.batch_size = num_steps * num_envs
+        self.batch_size = args.batch_size
         self.obs_space = obs_space
         self.gae = True
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.clear_memory()
 
-    def create_training_data(self, i):
-        b_obs = self.obs[i].reshape((-1,) + self.obs_space).to("cuda")
-        b_val_obs = self.valobs[i].reshape((-1,) + (self.obs_space[0]*self.args.n_agents,)).to("cuda")
-        b_logprobs = self.logprobs[i].reshape(-1).to("cuda")
-        b_actions = self.actions[i].reshape((-1,)).to("cuda")
-        b_advantages = self.advantages[i].reshape(-1).to("cuda")
-        b_returns = self.returns[i].reshape(-1).to("cuda")
-        b_values = self.values[i].reshape(-1).to("cuda")
-        b_actor_hidden = self.actor_hidden[i].reshape(-1,self.args.hidden_size).to("cuda")
-        b_critic_hidden = self.critic_hidden[i].reshape(-1,self.args.hidden_size).to("cuda")
+    def create_training_data(self):
+        b_obs = self.obs.reshape((-1,) + self.obs_space).to("cuda")
+        b_val_obs = self.valobs.reshape((-1,) + (self.obs_space[0]*self.args.n_agents,)).to("cuda")
+        b_logprobs = self.logprobs.reshape(-1).to("cuda")
+        b_actions = self.actions.reshape((-1,)).to("cuda")
+        b_advantages = self.advantages.reshape(-1).to("cuda")
+        b_returns = self.returns.reshape(-1).to("cuda")
+        b_values = self.values.reshape(-1).to("cuda")
+        b_actor_hidden = self.actor_hidden.reshape(-1,self.args.hidden_size).to("cuda")
         
         b_inds = np.arange(self.batch_size)
-        return b_obs, b_val_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values, b_actor_hidden, b_critic_hidden, b_inds
+        return b_obs, b_val_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values, b_actor_hidden, b_inds
 
-    def store_memory(self, i, observations, val_observations, logprobs,action,vals,reward,done,actor_hidden, critic_hidden):
-        c = self.counter//self.args.n_agents
-        self.obs[i, c] = observations
-        self.valobs[i, c] = val_observations
+    def store_memory(self, observations, val_observations, logprobs,action,vals,reward,done,actor_hidden):
+        c = self.counter
+        self.obs[c] = observations
+        self.valobs[c] = val_observations
 
-        self.logprobs[i, c] = logprobs
-        self.actions[i, c] = action
-        self.values[i, c] = vals
-        self.rewards[i, c] = reward
-        self.dones[i, c] = done
-        self.actor_hidden[i, c] = actor_hidden
-        self.critic_hidden[i, c] = critic_hidden
+        self.logprobs[c] = logprobs
+        self.actions[c] = action
+        self.values[c] = vals
+        self.rewards[c] = reward
+        self.dones[c] = done
+        self.actor_hidden[c] = actor_hidden
         self.counter += 1
 
     def calculate_returns(self):
         with torch.no_grad():
             if self.gae:
                 advantages = torch.zeros_like(self.rewards)
-                for i in range(self.args.n_agents):
-                    lastgaelam = 0
-                    for t in reversed(range(self.num_steps - 1)):
-                        nextnonterminal = 1.0 - self.dones[i][t + 1]
-                        nextvalues = self.values[i][t + 1]
-                        delta = (
-                            self.rewards[i][t]
-                            + self.gamma * nextvalues * nextnonterminal
-                            - self.values[i][t]
-                        )
-                        advantages[i][t] = lastgaelam = (
-                            delta
-                            + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
-                        )
+                lastgaelam = 0
+                for t in reversed(range(self.num_steps - 1)):
+                    nextnonterminal = 1.0 - self.dones[t + 1]
+                    nextvalues = self.values[t + 1]
+                    delta = (
+                        self.rewards[t]
+                        + self.gamma * nextvalues * nextnonterminal
+                        - self.values[t]
+                    )
+                    advantages[t] = lastgaelam = (
+                        delta
+                        + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
+                    )
                 returns = advantages + self.values
             else:
                 returns = torch.zeros_like(self.rewards)
@@ -193,7 +180,7 @@ class PPOTrainer:
         self.advantages = advantages
 
     def clear_memory(self):
-        space = (self.args.n_agents, self.num_steps, self.num_envs)
+        space = (self.num_steps, self.num_envs * self.args.n_agents)
 
         self.obs = T.zeros(space + self.obs_space)
         self.valobs = T.zeros(space + (self.obs_space[0]*self.args.n_agents,))
@@ -203,7 +190,6 @@ class PPOTrainer:
         self.rewards = T.zeros(space)
         self.dones = T.zeros(space)
         self.actor_hidden = T.zeros(space + (self.args.hidden_size,))
-        self.critic_hidden = T.zeros(space + (self.args.hidden_size,))
         self.counter = 0
 # fmt:on
 
@@ -218,69 +204,61 @@ class NNN(nn.Module):
     def __init__(self, obs_shape, actors, action_space, hidden_size):
         super(NNN, self).__init__()
 
-        inp_hid_size = hidden_size + np.array(obs_shape).prod()
+        # inp_hid_size = hidden_size + np.array(obs_shape).prod()
+        inp_hid_size = np.array(obs_shape).prod()
+
+        act_fn = nn.ReLU
 
         self.input_to_hidden_actor = nn.Sequential(
-            layer_init(nn.Linear(inp_hid_size, hidden_size)), nn.Tanh()
-        )
-        self.input_to_hidden_critic = nn.Sequential(
-            layer_init(
-                nn.Linear(
-                    hidden_size + np.array(obs_shape).prod() * actors, hidden_size
-                )
-            ),
-            nn.Tanh(),
+            layer_init(nn.Linear(inp_hid_size, hidden_size)), act_fn()
         )
 
         layer_filters = 256
 
         self.critic = nn.Sequential(
-            layer_init(
-                nn.Linear(
-                    hidden_size + np.array(obs_shape).prod() * actors, layer_filters
-                )
-            ),
-            nn.Tanh(),
+            layer_init(nn.Linear(inp_hid_size * actors, layer_filters)),
+            act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
-            nn.Tanh(),
+            act_fn(),
             layer_init(nn.Linear(layer_filters, 1), std=1.0),
         )
-        self.actors = nn.ModuleList()
-        for i in range(actors):
-            self.actors.append(
-                nn.Sequential(
-                    layer_init(nn.Linear(inp_hid_size, layer_filters)),
-                    nn.Tanh(),
-                    layer_init(nn.Linear(layer_filters, layer_filters)),
-                    nn.Tanh(),
-                    layer_init(nn.Linear(layer_filters, action_space), std=0.01),
-                )
-            )
+        self.actor = nn.Sequential(
+            layer_init(nn.Linear(inp_hid_size, layer_filters)),
+            act_fn(),
+            layer_init(nn.Linear(layer_filters, layer_filters)),
+            act_fn(),
+            layer_init(nn.Linear(layer_filters, action_space), std=0.01),
+        )
 
-    def get_value(self, x):
-        return self.critic(x)
+    def get_value(self, val_x, hidden):
+        # inp_crit_hidden = torch.hstack([val_x, hidden])
+        return self.critic(val_x)
 
-    def get_action_and_value(
-        self, x, val_x, actor, hidden_actor, hidden_critic, action=None
-    ):
-        inp_hidden_actor = torch.hstack([x, hidden_actor])
-        inp_hidden_critic = torch.hstack([val_x, hidden_critic])
-
-        new_hidden_actor = self.input_to_hidden_actor(inp_hidden_actor)
-        new_hidden_critic = self.input_to_hidden_critic(inp_hidden_critic)
-
-        logits = self.actors[actor](inp_hidden_actor)
+    def get_action(self, x, hidden):
+        # inp_hidden = torch.hstack([x, hidden])
+        logits = self.actor(x)
         probs = Categorical(logits=logits)
-        if action is None:
-            action = probs.sample()
+        action = probs.sample()
+
+        # new_hidden = self.input_to_hidden_actor(inp_hidden)
+        new_hidden = hidden
+        return action, new_hidden, probs
+
+    def get_action_and_value(self, x, val_x, hidden, action_=None):
+
+        action, new_hidden, probs = self.get_action(x, hidden)
+        value = self.get_value(val_x, hidden)
+
+        prob = (
+            probs.log_prob(action_) if action_ is not None else probs.log_prob(action)
+        )
 
         return (
             action,
-            probs.log_prob(action),
+            prob,
             probs.entropy(),
-            self.critic(inp_hidden_critic),
-            new_hidden_actor,
-            new_hidden_critic,
+            value,
+            new_hidden,
         )
 
 
@@ -293,7 +271,7 @@ class Agent:
         self.args = args
 
         self.writer = writer
-        action_space = 50
+        action_space = 35
         self.ppo = NNN(args.obs_space, args.n_agents, action_space, args.hidden_size)
         print(self.ppo)
         self.memory = PPOTrainer(
@@ -310,18 +288,15 @@ class Agent:
         )
 
     # fmt:off
-    def remember(self, i, observations, action_p, action, vals, val_obs, reward, done, actor_h, critic_h):
-        self.memory.store_memory(i, observations, val_obs, action_p, action, vals, reward, done, actor_h, critic_h)
-    
-    def save_models(self):
-        print("... saving models ...")
-        self.ppo.save_checkpoint()
-
-    def load_models(self):
-        print("... loading models ...")
-        self.ppo.load_checkpoint()
+    def remember(self, observations, val_obs, action_p, action, vals, reward, done, actor_h):
+        self.memory.store_memory(observations, val_obs, action_p, action, vals, reward, done, actor_h)
     # fmt:on
-    def choose_action(self, observations, val_obs, i, actor_hidden, critic_hidden):
+    def choose_action_evaluate(self, obs, hidden):
+        with torch.no_grad():
+            action, new_hidden, probs = self.ppo.get_action(obs, hidden)
+            return action.cpu(), new_hidden
+
+    def choose_action(self, observations, val_obs, hidden):
         with torch.no_grad():
             (
                 action,
@@ -329,119 +304,90 @@ class Agent:
                 entropy,
                 value,
                 new_hidden_actor,
-                new_hidden_critic,
-            ) = self.ppo.get_action_and_value(
-                observations, val_obs, i, actor_hidden, critic_hidden
-            )
+            ) = self.ppo.get_action_and_value(observations, val_obs, hidden)
 
-        return (
-            probs.cpu(),
-            action.cpu(),
-            value.cpu(),
-            new_hidden_actor,
-            new_hidden_critic,
-        )
+            return (probs.cpu(), action.cpu(), value.cpu(), new_hidden_actor)
 
     def learn(self, global_step):
-        # print("-" * 100)
-
         args = self.args
         self.memory.calculate_returns()
         clipfracs = []
 
-        for i in range(args.n_agents):
+        (
+            b_obs,
+            b_val_obs,
+            b_logprobs,
+            b_actions,
+            b_advantages,
+            b_returns,
+            b_values,
+            b_actor_hidden,
+            b_inds,
+        ) = self.memory.create_training_data()
 
-            (
-                b_obs,
-                b_val_obs,
-                b_logprobs,
-                b_actions,
-                b_advantages,
-                b_returns,
-                b_values,
-                b_actor_hidden,
-                b_critic_hidden,
-                b_inds,
-            ) = self.memory.create_training_data(i)
+        for epoch in range(args.update_epochs):
+            # np.random.shuffle(b_inds)
+            for start in range(0, args.batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = b_inds[start:end]
 
-            for epoch in range(args.update_epochs):
-                np.random.shuffle(b_inds)
-                for start in range(0, args.batch_size, args.minibatch_size):
-                    end = start + args.minibatch_size
-                    mb_inds = b_inds[start:end]
+                (_, newlogprob, entropy, newvalue, _,) = self.ppo.get_action_and_value(
+                    b_obs[mb_inds],
+                    b_val_obs[mb_inds],
+                    b_actor_hidden[mb_inds],
+                    b_actions.long()[mb_inds],
+                )
+                logratio = newlogprob - b_logprobs[mb_inds]
+                ratio = logratio.exp()
 
-                    (
-                        _,
-                        newlogprob,
-                        entropy,
-                        newvalue,
-                        _,
-                        _,
-                    ) = self.ppo.get_action_and_value(
-                        b_obs[mb_inds],
-                        b_val_obs[mb_inds],
-                        i,
-                        b_actor_hidden[mb_inds],
-                        b_critic_hidden[mb_inds],
-                        b_actions.long()[mb_inds],
-                    )
-                    logratio = newlogprob - b_logprobs[mb_inds]
-                    ratio = logratio.exp()
+                with torch.no_grad():
+                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
+                    # old_approx_kl = (-logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [
+                        ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                    ]
 
-                    with torch.no_grad():
-                        # calculate approx_kl http://joschu.net/blog/kl-approx.html
-                        # old_approx_kl = (-logratio).mean()
-                        approx_kl = ((ratio - 1) - logratio).mean()
-                        clipfracs += [
-                            ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
-                        ]
-
-                    mb_advantages = b_advantages[mb_inds]
-                    if args.norm_adv:
-                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (
-                            mb_advantages.std() + 1e-8
-                        )
-
-                    pg_loss1 = -mb_advantages * ratio
-                    pg_loss2 = -mb_advantages * torch.clamp(
-                        ratio, 1 - args.clip_coef, 1 + args.clip_coef
-                    )
-                    pg_loss = torch.max(pg_loss1, pg_loss2).mean()
-                    newvalue = newvalue.view(-1)
-                    if args.clip_vloss:
-                        v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                        v_clipped = b_values[mb_inds] + torch.clamp(
-                            newvalue - b_values[mb_inds],
-                            -args.clip_coef,
-                            args.clip_coef,
-                        )
-                        v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                        v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                        v_loss = 0.5 * v_loss_max.mean()
-                    else:
-                        v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
-
-                    entropy_loss = entropy.mean()
-                    loss = (
-                        pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                mb_advantages = b_advantages[mb_inds]
+                if args.norm_adv:
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                        mb_advantages.std() + 1e-8
                     )
 
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    nn.utils.clip_grad_norm_(self.ppo.parameters(), args.max_grad_norm)
-                    self.optimizer.step()
+                pg_loss1 = -mb_advantages * ratio
+                pg_loss2 = -mb_advantages * torch.clamp(
+                    ratio, 1 - args.clip_coef, 1 + args.clip_coef
+                )
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                newvalue = newvalue.view(-1)
+                if args.clip_vloss:
+                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                    v_clipped = b_values[mb_inds] + torch.clamp(
+                        newvalue - b_values[mb_inds],
+                        -args.clip_coef,
+                        args.clip_coef,
+                    )
+                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
+                    v_loss = 0.5 * v_loss_max.mean()
+                else:
+                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
-            y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
-            var_y = np.var(y_true)
-            explained_var = (
-                np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
-            )
+                entropy_loss = entropy.mean()
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
-            y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
-            var_y = np.var(y_true)
-            explained_var = (
-                np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
-            )
+                self.optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.ppo.parameters(), args.max_grad_norm)
+                self.optimizer.step()
+
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        var_y = np.var(y_true)
+        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        var_y = np.var(y_true)
+        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
         self.writer.add_scalar(f"losses/value_loss", v_loss.item(), global_step)
         self.writer.add_scalar(f"losses/policy_loss", pg_loss.item(), global_step)
