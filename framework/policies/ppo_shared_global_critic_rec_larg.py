@@ -191,7 +191,7 @@ class NNN(nn.Module):
 
         act_fn = nn.ReLU
 
-        layer_filters = 128
+        layer_filters = 192
 
         self.gru_critic = nn.GRU(
             inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
