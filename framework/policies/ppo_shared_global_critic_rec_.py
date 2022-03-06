@@ -57,7 +57,15 @@ class ppo_shared_global_critic_rec(base_policy):
         val_obs = self.get_critic_obs(observations)
         obs = T.tensor(observations, dtype=T.float, device="cuda")
 
-        (action_p, actions, value) = self.agent.choose_action(obs, val_obs)
+        (
+            action_p,
+            actions,
+            value,
+            self.actor_hidden,
+            self.critic_hidden,
+        ) = self.agent.choose_action(
+            obs, val_obs, self.actor_hidden, self.critic_hidden
+        )
 
         value = T.squeeze(value)
 
@@ -70,7 +78,9 @@ class ppo_shared_global_critic_rec(base_policy):
 
         obs_batch = T.tensor(observations, dtype=T.float, device="cuda")
 
-        actions = self.agent.choose_action_evaluate(obs_batch)
+        (actions, self.actor_hidden_test) = self.agent.choose_action_evaluate(
+            obs_batch, self.actor_hidden_test
+        )
 
         return actions.numpy()
 
@@ -86,7 +96,13 @@ class ppo_shared_global_critic_rec(base_policy):
             self.to_remember[4],  # value
             reward,
             done,
+            self.actor_hidden,
+            self.critic_hidden,
         )
+        # fmt:off
+        self.actor_hidden *= done.reshape(-1,1).to(self.args.device)
+        self.critic_hidden *= done.reshape(-1,1).to(self.args.device)
+        # fmt:on
 
         if (self.agent.memory.counter) == self.args.num_steps:
             self.agent.learn(total_steps)
@@ -113,8 +129,11 @@ class PPOTrainer:
         b_advantages = self.advantages.to("cuda")
         b_returns = self.returns.to("cuda")
         b_values = self.values.to("cuda")
+        b_actor_hidden = self.actor_hidden.to("cuda")
+        b_critic_hidden = self.critic_hidden.to("cuda")
         
-        return b_obs, b_val_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values
+        b_inds = np.arange(self.batch_size)
+        return b_obs, b_val_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values, b_actor_hidden, b_critic_hidden, b_inds
 
     def store_memory(self, observations, val_observations, logprobs,action,vals,reward,done, actor_hidden, critic_hidden):
         c = self.counter
@@ -126,6 +145,8 @@ class PPOTrainer:
         self.values[c] = vals
         self.rewards[c] = reward
         self.dones[c] = done
+        self.actor_hidden[c] = actor_hidden
+        self.critic_hidden[c] = critic_hidden
 
         self.counter += 1
 
@@ -170,6 +191,8 @@ class PPOTrainer:
         self.values = T.zeros(space)
         self.rewards = T.zeros(space)
         self.dones = T.zeros(space)
+        self.actor_hidden = T.zeros(space + (self.args.hidden_size,))
+        self.critic_hidden = T.zeros(space + (self.args.hidden_size,))
         self.counter = 0
 # fmt:on
 
@@ -214,6 +237,7 @@ class NNN(nn.Module):
         out, new_hidden = self.gru_critic(val_x, hidden)
         out = out[-1, :, :]
         new_hidden = new_hidden[0, :, :]
+        # print(out.shape, new_hidden.shape)
         return self.critic(out), new_hidden
 
     def get_action(self, x, hidden):
@@ -225,21 +249,27 @@ class NNN(nn.Module):
 
         probs = Categorical(logits=logits)
         action = probs.sample()
+        # print(out.shape, new_hidden.shape, action.shape, logits.shape)
         return action, new_hidden, probs
 
     def get_action_and_value(self, x, val_x, hidden_actor, hidden_critic, action_=None):
+        # print("NEURAL NETWORK TIME")
+        # print(x.shape, val_x.shape)
         action, new_hidden_actor, probs = self.get_action(x, hidden_actor)
         value, new_hidden_critic = self.get_value(val_x, hidden_critic)
 
         prob = (
             probs.log_prob(action_) if action_ is not None else probs.log_prob(action)
         )
+        # print("NEURAL NETWORK TIME complete")
 
         return (
             action,
             prob,
             probs.entropy(),
             value,
+            new_hidden_actor,
+            new_hidden_critic,
         )
 
 
@@ -254,6 +284,7 @@ class Agent:
         self.writer = writer
         action_space = args.action_space
         self.ppo = NNN(args.obs_space, args.n_agents, action_space, args.hidden_size)
+        # self.writer.add_graph(self.ppo)
         print(self.ppo)
         self.memory = PPOTrainer(
             args,
@@ -269,17 +300,17 @@ class Agent:
         )
 
     # fmt:off
-    def remember(self, observations, val_obs, action_p, action, vals, reward, done):
-        self.memory.store_memory(observations, val_obs, action_p, action, vals, reward, done)
+    def remember(self, observations, val_obs, action_p, action, vals, reward, done, actor_h, critic_h):
+        self.memory.store_memory(observations, val_obs, action_p, action, vals, reward, done, actor_h, critic_h)
     # fmt:on
-    def choose_action_evaluate(self, obs):
+    def choose_action_evaluate(self, obs, hidden):
         with torch.no_grad():
             obs_space = np.array(self.args.obs_space).prod()
             obs = obs.reshape(1, -1, obs_space)
-            action, probs = self.ppo.get_action(obs)
-            return action.cpu()
+            action, new_hidden, probs = self.ppo.get_action(obs, hidden)
+            return action.cpu(), new_hidden
 
-    def choose_action(self, observations, val_obs):
+    def choose_action(self, observations, val_obs, hidden_actor, hidden_critic):
         with torch.no_grad():
             obs_space = np.array(self.args.obs_space).prod()
             observations = observations.reshape(1, -1, obs_space)
@@ -290,12 +321,18 @@ class Agent:
                 probs,
                 entropy,
                 value,
-            ) = self.ppo.get_action_and_value(observations, val_obs)
+                new_hidden_actor,
+                new_hidden_critic,
+            ) = self.ppo.get_action_and_value(
+                observations, val_obs, hidden_actor, hidden_critic
+            )
 
             return (
                 probs.cpu(),
                 action.cpu(),
                 value.cpu(),
+                new_hidden_actor,
+                new_hidden_critic,
             )
 
     def learn(self, global_step):
@@ -311,12 +348,19 @@ class Agent:
             b_advantages,
             b_returns,
             b_values,
+            b_actor_hidden,
+            b_critic_hidden,
+            b_inds,
         ) = self.memory.create_training_data()
+
+        batch_size = args.n_agents * args.num_envs
 
         total_pg_loss = 0
         total_v_loss = 0
 
         for epoch in range(args.update_epochs):
+            actor_h = T.zeros(batch_size, args.hidden_size).to("cuda")
+            critic_h = T.zeros(batch_size, args.hidden_size).to("cuda")
             for timestep in range(args.episode_len - 1):
 
                 mb_obs = b_obs[: timestep + 1]
@@ -324,12 +368,30 @@ class Agent:
                 mb_logprobs = b_logprobs[timestep]
                 mb_actions = b_actions[timestep]
 
+                mb_actor_hidden = b_actor_hidden[timestep]
+                mb_critic_hidden = b_critic_hidden[timestep]
                 mb_returns = b_returns[timestep]
                 mb_advantages = b_advantages[timestep]
                 mb_values = b_values[timestep]
 
-                (_, newlogprob, entropy, newvalue) = self.ppo.get_action_and_value(
-                    mb_obs, mb_val_obs, mb_actions.long()
+                # print(timestep)
+                # actor_h = actor_h.reshape(batch_size, args.hidden_size).detach()
+                # critic_h = critic_h.reshape(batch_size, args.hidden_size).detach()
+                # print(actor_h.shape)
+
+                (
+                    _,
+                    newlogprob,
+                    entropy,
+                    newvalue,
+                    nactor_h,
+                    ncritic_h,
+                ) = self.ppo.get_action_and_value(
+                    mb_obs,
+                    mb_val_obs,
+                    actor_h,
+                    critic_h,
+                    mb_actions.long(),
                 )
                 logratio = newlogprob - mb_logprobs
                 ratio = logratio.exp()
