@@ -24,6 +24,7 @@ class Scenario(BaseScenario):
             landmark.name = "landmark %d" % i
             landmark.collide = False
             landmark.movable = False
+            landmark.size = 0.1
 
         world.colors = [
             np.array([1, 0.5, 0.5]),
@@ -72,7 +73,9 @@ class Scenario(BaseScenario):
             agent_reward = np.sqrt(
                 np.sum(np.square(agent.goal_a.state.p_pos - agent.goal_b.state.p_pos))
             )
-        return -agent_reward
+        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.05
+        agent_reward = -agent_reward - comm_penalty
+        return agent_reward
 
     def global_reward(self, world):
         all_rewards = sum(self.reward(agent, world) for agent in world.agents)

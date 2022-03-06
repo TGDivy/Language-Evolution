@@ -48,45 +48,7 @@ class ExperimentBuilder(nn.Module):
 
         self.best_score = -1000
 
-    def save_model(self, model_save_dir, model_save_name, index):
-        """
-        Save the network parameter state and current best val epoch idx and best val accuracy.
-        :param model_save_name: Name to use to save model without the epoch index
-        :param model_idx: The index to save the model with.
-        :param best_validation_model_idx: The index of the best validation model to be stored for future use.
-        :param best_validation_model_acc: The best validation accuracy to be stored for use at test time.
-        :param model_save_dir: The directory to store the state at.
-        :param state: The dictionary containing the system state.
-
-        """
-        self.state[
-            "network"
-        ] = self.state_dict()  # save network parameter and other variables.
-        torch.save(
-            self.state,
-            f=os.path.join(model_save_dir, "{}_{}".format(model_save_name, str(index))),
-        )  # save state at prespecified filepath
-
-    def load_model(self, model_save_dir, model_save_name, model_idx):
-        """
-        Load the network parameter state and the best val model idx and best val acc to be compared with the future val accuracies, in order to choose the best val model
-        :param model_save_dir: The directory to store the state at.
-        :param model_save_name: Name to use to save model without the epoch index
-        :param model_idx: The index to save the model with.
-        :return: best val idx and best val model acc, also it loads the network state into the system state without returning it
-        """
-        state = torch.load(
-            f=os.path.join(
-                model_save_dir, "{}_{}".format(model_save_name, str(model_idx))
-            )
-        )
-        self.load_state_dict(state_dict=state["network"])
-        return state, state["best_val_model_idx"], state["best_val_model_acc"]
-
-    def logging(self):
-        pass
-
-    def save_video(self, id, N=2):
+    def save_video(self, step, N=2):
         import time
 
         episode_len = self.episode_len
@@ -95,7 +57,7 @@ class ExperimentBuilder(nn.Module):
             self.experiment_videos,
             record_video_trigger=lambda x: x == 0,
             video_length=episode_len - 1,
-            name_prefix=f"{self.experiment_name}-{id}",
+            name_prefix=f"{self.experiment_name}-{step}",
         )
         import time
 
@@ -105,22 +67,24 @@ class ExperimentBuilder(nn.Module):
                 # time.sleep(0.5)
                 act = self.Policy.action_evaluate(obs, new_episode=i == 0)
                 obs, _, _, _ = env.step(act)
-        env.close()
 
+        env.close()
         videos = []
         for i in range(N):
             start = i * (episode_len - 1)
             end = (i + 1) * (episode_len - 1)
             path = os.path.join(
                 self.experiment_videos,
-                f"{self.experiment_name}-{id}-step-{start}-to-step-{end}.mp4",
+                f"{self.experiment_name}-{step}-step-{start}-to-step-{end}.mp4",
             )
             video = read_video(path)
             v = video[0][None, :]
             videos.append(v)
 
         videos = torch.concat(videos)
-        self.logger.add_video(f"{self.experiment_name}-{id}", videos, fps=10)
+        self.logger.add_video(
+            f"{self.experiment_name}", videos, global_step=step, fps=10
+        )
 
     def score(self, step):
         N = 50
@@ -130,25 +94,25 @@ class ExperimentBuilder(nn.Module):
         agent_end_reward = [[] for i in range(self.args.n_agents)]
 
         n_agents = self.args.n_agents
-        action_space = self.args.args.action_space
 
         comm = []
         for _ in range(N):
             obs = env.reset()
             rewards = []
-            communication = [[] for _ in range(n_agents)]
-
+            communication = []
             for i in range(self.episode_len):
                 act = self.Policy.action_evaluate(obs, new_episode=i == 0)
-                for i, a in enumerate(act):
-                    communication[i].append(a // 5)
+                # for i, a in enumerate(act):
+                communication.append(act // 5)
                 obs, reward, _, _ = env.step(act)
                 rewards.append(np.mean(reward))
-            communication.append(comm)
+            comm.append(communication)
             mean_episode_reward.append(np.sum(rewards))
             end_rewards.append(reward)
             for i, r in enumerate(reward):
                 agent_end_reward[i].append(r)
+
+        self.analyze_comms(comm, step)
 
         self.logger.add_scalar(f"dev/End_reward", np.mean(end_rewards), step)
         self.logger.add_scalar("dev/Episode_return", np.mean(mean_episode_reward), step)
@@ -159,15 +123,18 @@ class ExperimentBuilder(nn.Module):
         if self.best_score < np.mean(end_rewards):
             self.best_score = np.mean(end_rewards)
 
-    def analyze_comms(self, comms, step, vocab):
+        env.close()
+
+    def analyze_comms(self, comms, step):
         comms = np.array(comms, dtype=int)  # 50, 25, 3
+        print(comms.shape)
 
         total_unique_symbols_uttered = len(np.unique(comms))
         n_agents = self.args.n_agents
         self.logger.add_scalar(f"comm/vocab_size", total_unique_symbols_uttered, step)
 
         for i in range(n_agents):
-            tusu_agent = np.unique(comms[:, :, i])
+            tusu_agent = len(np.unique(comms[:, :, i]))
             self.logger.add_scalar(f"comm/vocab_size_agent_{i}", tusu_agent, step)
 
         average_symbols_uttered_ep = (
@@ -182,16 +149,18 @@ class ExperimentBuilder(nn.Module):
             self.logger.add_scalar(f"comm/symbols_per_ep_agent_{i}", asue, step)
 
         episodes = 10
-        vocab = 20
+        vocab = self.args.action_space // 5
         array = comms[:episodes, :, :]
         dummy = np.zeros((episodes, self.episode_len, n_agents + 1), dtype=np.int)
         dummy[:, :, :n_agents] = array
         dummy = np.hstack([dummy[i] for i in range(episodes)])
 
         pallete = sns.color_palette("crest", vocab)
-        labels = "*ABCDEFGHIJKLMNOPQRST"
+        labels = "*ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         arrayShow = np.array([[pallete[i] for i in j] for j in dummy])
-        patches = [mpatches.Patch(color=a[i], label=labels[i]) for i in range(0, vocab)]
+        patches = [
+            mpatches.Patch(color=pallete[i], label=labels[i]) for i in range(0, vocab)
+        ]
 
         fig = plt.figure(figsize=(10, 10))
         a = plt.imshow(arrayShow)
@@ -205,8 +174,8 @@ class ExperimentBuilder(nn.Module):
         rewards, dones = 0, False
 
         for step in tqdm(range(0, self.steps + 1), position=1):
-            if (step) % (self.steps // 50) == 0:
-                self.score(step)
+            # if (step) % (self.steps // 5) == 0:
+            #     self.score(step)
 
             new_episode = (step % self.args.episode_len) == 0
             actions = self.Policy.action(observation, new_episode=new_episode)
@@ -216,7 +185,7 @@ class ExperimentBuilder(nn.Module):
             self.Policy.store(total_steps, observation, rewards, dones)
 
             total_steps += 1
-            if (step + 1) % (self.steps // 5) == 0:
-                self.save_video(step)
+            # if (step + 1) % (self.steps // 5) == 0:
+            #     self.save_video(step)
 
-        self.save_video("final", N=10)
+        # self.save_video(1e6, N=10)

@@ -32,6 +32,7 @@ from torch.utils.tensorboard import SummaryWriter
 import warnings
 
 warnings.filterwarnings("ignore")
+import sys
 
 if __name__ == "__main__":
     args = get_args()  # get arguments from command line
@@ -53,7 +54,6 @@ if __name__ == "__main__":
     os.mkdir(experiment_saved_models)
     os.mkdir(experiment_videos)
     ################################################
-    # wandb.tensorboard.patch(experiment_logs, tensorboardX=False)
     wandb.init(
         project="language_evolution",
         entity=None,
@@ -62,6 +62,7 @@ if __name__ == "__main__":
         name=experiment_name,
         monitor_gym=True,
         save_code=True,
+        dir=os.path.abspath("experiments"),
     )
     logger = SummaryWriter(experiment_logs)
 
@@ -108,7 +109,7 @@ if __name__ == "__main__":
     args.n_agents = env.max_num_agents
     env = ss.pad_observations_v0(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
-    single_env = ss.concat_vec_envs_v1(env, 1, 1)
+    single_env = ss.concat_vec_envs_v1(env, 1)
     parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, min(8, args.num_envs))
     parrallel_env.seed(args.seed)
     obs = parrallel_env.reset()
@@ -116,6 +117,8 @@ if __name__ == "__main__":
     print(
         f"Observation shape: {env.observation_space.shape}, Action space: {parrallel_env.action_space}, all_obs shape: {obs.shape}"
     )
+    env.close()
+
     args.obs_space = env.observation_space.shape
     args.device = "cuda"
     ##############################################################
@@ -166,11 +169,13 @@ if __name__ == "__main__":
         "|param|value|\n|-|-|\n%s"
         % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
+    print("Running EXP!")
+
     exp.run_experiment()
-    env.close()
     single_env.close()
     parrallel_env.close()
     logger.close()
-    import sys
 
-    sys.exit()
+    print("closing now!")
+    # sys.exit()
+    os._exit(0)

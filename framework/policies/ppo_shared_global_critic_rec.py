@@ -402,10 +402,3 @@ class Agent:
         self.writer.add_scalar(f"losses/explained_variance", explained_var, global_step)
 
         self.memory.clear_memory()
-
-        # TRY NOT TO MODIFY: record rewards for plotting purposes
-        self.writer.add_scalar(
-            "charts/learning_rate",
-            self.optimizer.param_groups[0]["lr"],
-            global_step,
-        )
