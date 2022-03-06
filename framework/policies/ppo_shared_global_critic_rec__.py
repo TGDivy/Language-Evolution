@@ -87,9 +87,6 @@ class ppo_shared_global_critic_rec(base_policy):
             reward,
             done,
         )
-        # fmt:off
-        self.actor_hidden *= done.reshape(-1,1).to(self.args.device)
-        # fmt:on
 
         if (self.agent.memory.counter) == self.args.num_steps:
             self.agent.learn(total_steps)

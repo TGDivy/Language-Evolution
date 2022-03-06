@@ -389,8 +389,8 @@ class Agent:
                 ) = self.ppo.get_action_and_value(
                     mb_obs,
                     mb_val_obs,
-                    mb_actor_hidden,
-                    mb_critic_hidden,
+                    actor_h,
+                    critic_h,
                     mb_actions.long(),
                 )
                 logratio = newlogprob - mb_logprobs
