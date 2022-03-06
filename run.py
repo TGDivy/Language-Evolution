@@ -9,7 +9,7 @@ from pettingzoo.mpe import (
     simple_reference_v2,
     simple_spread_v2,
 )
-from scenarios import complex_ref
+from scenarios import complex_ref, full_ref
 
 import shutil
 import supersuit as ss
@@ -73,20 +73,26 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     # setup environment ###########################################
+    N = 2
     if args.env == "simple":
         env = simple_v2
     elif args.env == "communication":
         env = simple_reference_v2
     elif args.env == "complex_communication":
         env = complex_ref
-    # elif args.env == "communication_full":
-    #     env = simple_reference_v3
-    #     args.n_agents = 2
+    elif args.env == "full_communication_2":
+        env = full_ref
+        N = 2
+    elif args.env == "full_communication_3":
+        env = full_ref
+        N = 3
+    elif args.env == "full_communication_4":
+        N = 4
+        env = full_ref
     elif args.env == "spread":
         env = simple_spread_v2
-    # elif args.env == "adversary":
-    #     env = simple_adversary_v2
-    env = env.parallel_env()
+
+    env = env.parallel_env(N=N)
     args.n_agents = env.max_num_agents
     env = ss.pad_observations_v0(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
@@ -129,7 +135,7 @@ if __name__ == "__main__":
         args.hidden_size = 64
     elif args.model == "ppo_shared_global_critic_rec_large":
         Policy = ppo_shared_global_critic_rec_large
-        args.hidden_size = 256
+        args.hidden_size = 128
     Policy = Policy(args, logger)
     ###############################################################
 

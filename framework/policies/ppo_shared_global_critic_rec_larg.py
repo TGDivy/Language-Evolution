@@ -189,9 +189,9 @@ class NNN(nn.Module):
         self.gru_layers = 1
         inp_hid_size = np.array(obs_shape).prod()
 
-        act_fn = nn.ReLU
+        act_fn = nn.SELU
 
-        layer_filters = 192
+        layer_filters = 128
 
         self.gru_critic = nn.GRU(
             inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
@@ -237,9 +237,6 @@ class NNN(nn.Module):
         logits = self.actor(out)
         probs = Categorical(logits=logits)
         action = probs.sample()
-        # print(x.shape, out.shape)
-        # print(logits.shape, probs)
-        # print(action.shape)
 
         return action, probs
 
