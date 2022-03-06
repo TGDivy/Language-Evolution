@@ -68,7 +68,7 @@ class ppo_shared_global_critic_rec(base_policy):
     def action_evaluate(self, observations, new_episode):
         obs_batch = T.tensor(observations, dtype=T.float, device="cuda")
         if new_episode:
-            self.agent.ppo.init_hidden()
+            self.agent.ppo.init_hidden(observations.shape[0])
         actions = self.agent.choose_action_evaluate(obs_batch)
         # actions = actions.squeeze()
         # print(actions)
@@ -205,10 +205,14 @@ class NNN(nn.Module):
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
+            layer_init(nn.Linear(layer_filters, layer_filters)),
+            act_fn(),
             layer_init(nn.Linear(layer_filters, 1), std=1.0),
         )
         self.actor = nn.Sequential(
             layer_init(nn.Linear(hidden_size, layer_filters)),
+            act_fn(),
+            layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
@@ -331,8 +335,6 @@ class Agent:
                 b_obs, b_val_obs, b_actions.long()
             )
             newvalue = newvalue.squeeze()
-            # print(newlogprob.shape, newvalue.shape)
-            # print(b_returns.shape)
 
             logratio = newlogprob - b_logprobs
             ratio = logratio.exp()
@@ -386,7 +388,7 @@ class Agent:
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-        div_term = args.episode_len * args.update_epochs
+        div_term = args.update_epochs
 
         self.writer.add_scalar(
             f"losses/value_loss", total_v_loss.item() / div_term, global_step
