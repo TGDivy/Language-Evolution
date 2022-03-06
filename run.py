@@ -11,6 +11,8 @@ from pettingzoo.mpe import (
 )
 from scenarios import complex_ref, full_ref
 
+# from torch.profiler import profile, record_function, ProfilerActivity
+import wandb
 import shutil
 import supersuit as ss
 from framework.policies.ppo import ppo_policy
@@ -51,6 +53,16 @@ if __name__ == "__main__":
     os.mkdir(experiment_saved_models)
     os.mkdir(experiment_videos)
     ################################################
+    # wandb.tensorboard.patch(experiment_logs, tensorboardX=False)
+    wandb.init(
+        project="language_evolution",
+        entity=None,
+        sync_tensorboard=True,
+        config=vars(args),
+        name=experiment_name,
+        monitor_gym=True,
+        save_code=True,
+    )
     logger = SummaryWriter(experiment_logs)
 
     print("\n*****Parameters*****")
@@ -106,8 +118,6 @@ if __name__ == "__main__":
     )
     args.obs_space = env.observation_space.shape
     args.device = "cuda"
-    args.batch_size *= args.n_agents
-    args.minibatch_size = int(args.batch_size // args.num_minibatches)
     ##############################################################
 
     ############### MODEL ########################################
@@ -150,6 +160,11 @@ if __name__ == "__main__":
         episode_len=args.episode_len,
         steps=args.total_timesteps,
         logger=logger,
+    )
+    logger.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
     exp.run_experiment()
     env.close()
