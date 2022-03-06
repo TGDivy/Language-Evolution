@@ -155,16 +155,17 @@ class ExperimentBuilder(nn.Module):
         rewards, dones = 0, False
 
         for step in tqdm(range(0, self.steps + 1), position=1):
-            actions = self.Policy.action(observation, new_episode=step == 0)
+            if (step) % (self.steps // 50) == 0:
+                self.score(step)
+
+            new_episode = (step % self.args.episode_len) == 0
+            actions = self.Policy.action(observation, new_episode=new_episode)
 
             observation, rewards, dones, infos = self.train_env.step(actions)
 
             self.Policy.store(total_steps, observation, rewards, dones)
 
             total_steps += 1
-
-            if (step) % (self.steps // 50) == 0:
-                self.score(step)
 
             if (step + 1) % (self.steps // 5) == 0:
                 self.save_video(step)

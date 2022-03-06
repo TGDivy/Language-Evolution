@@ -24,6 +24,7 @@ class ppo_shared_global_critic_rec(base_policy):
         self.args = args
 
         self.agent = Agent(args, writer)
+
         self.n_agents = args.n_agents
         self.idx_starts = np.array([i * args.n_agents for i in range(0, args.num_envs)])
 
@@ -44,28 +45,35 @@ class ppo_shared_global_critic_rec(base_policy):
         val_obs = val_obs.to("cuda")
         return val_obs
 
-    def action(self, observations, **kwargs):
-        self.to_remember = []
+    def action(self, observations, new_episode=False, **kwargs):
+        with T.no_grad():
+            if new_episode:
+                self.agent.ppo.init_hidden(observations.shape[0])
 
-        val_obs = self.get_critic_obs(observations)
-        obs = T.tensor(observations, dtype=T.float, device="cuda")
+            self.to_remember = []
+            val_obs = self.get_critic_obs(observations)
+            obs = T.tensor(observations, dtype=T.float, device="cuda")
 
-        (action_p, actions, value) = self.agent.choose_action(obs, val_obs)
+            (action_p, actions, value) = self.agent.choose_action(obs, val_obs)
+            actions = actions.squeeze()
+            action_p = action_p.squeeze()
+            value = value.squeeze()
 
-        value = T.squeeze(value)
+            self.to_remember = (obs, val_obs, action_p, actions, value)
 
-        self.to_remember = (obs, val_obs, action_p, actions, value)
+            # print(actions.squeeze())
 
-        return actions.numpy()
+            return actions.numpy()
 
     def action_evaluate(self, observations, new_episode):
-        self.actor_hidden_test *= 0 if new_episode else 1
-
         obs_batch = T.tensor(observations, dtype=T.float, device="cuda")
-
+        if new_episode:
+            self.agent.ppo.init_hidden()
         actions = self.agent.choose_action_evaluate(obs_batch)
+        # actions = actions.squeeze()
+        # print(actions)
 
-        return actions.numpy()
+        return actions[0].numpy()
 
     def store(self, total_steps, obs, rewards, dones):
 
@@ -81,7 +89,7 @@ class ppo_shared_global_critic_rec(base_policy):
             done,
         )
 
-        if (self.agent.memory.counter) == self.args.num_steps:
+        if (self.agent.memory.counter) == self.args.episode_len:
             self.agent.learn(total_steps)
 
 
@@ -109,7 +117,7 @@ class PPOTrainer:
         
         return b_obs, b_val_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values
 
-    def store_memory(self, observations, val_observations, logprobs,action,vals,reward,done, actor_hidden, critic_hidden):
+    def store_memory(self, observations, val_observations, logprobs,action,vals,reward,done):
         c = self.counter
         self.obs[c] = observations
         self.valobs[c] = val_observations
@@ -127,7 +135,7 @@ class PPOTrainer:
             if self.gae:
                 advantages = torch.zeros_like(self.rewards)
                 lastgaelam = 0
-                for t in reversed(range(self.num_steps)):
+                for t in reversed(range(self.num_steps-1)):
                     nextnonterminal = 1.0 - self.dones[t + 1]
                     nextvalues = self.values[t + 1]
                     delta = (
@@ -225,6 +233,9 @@ class NNN(nn.Module):
         logits = self.actor(out)
         probs = Categorical(logits=logits)
         action = probs.sample()
+        # print(x.shape, out.shape)
+        # print(logits.shape, probs)
+        # print(action.shape)
 
         return action, probs
 
@@ -311,12 +322,18 @@ class Agent:
 
         total_pg_loss = 0
         total_v_loss = 0
+        # print("*" * 50)
 
         for epoch in range(args.update_epochs):
+            self.ppo.init_hidden(b_obs.shape[1])
 
             (_, newlogprob, entropy, newvalue) = self.ppo.get_action_and_value(
                 b_obs, b_val_obs, b_actions.long()
             )
+            newvalue = newvalue.squeeze()
+            # print(newlogprob.shape, newvalue.shape)
+            # print(b_returns.shape)
+
             logratio = newlogprob - b_logprobs
             ratio = logratio.exp()
 
@@ -339,7 +356,7 @@ class Agent:
             )
             pg_loss = torch.max(pg_loss1, pg_loss2).mean()
             total_pg_loss += pg_loss
-            newvalue = newvalue.view(-1)
+            # newvalue = newvalue.view(-1)
             if args.clip_vloss:
                 v_loss_unclipped = (newvalue - b_returns) ** 2
                 v_clipped = b_values + torch.clamp(

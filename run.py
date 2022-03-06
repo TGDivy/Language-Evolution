@@ -20,7 +20,7 @@ from framework.policies.ppo3_shared import ppo_policy3_shared
 from framework.policies.ppo_rnn_shared import ppo_rnn_policy_shared
 from framework.policies.ppo_shared_critic import ppo_shared_critic
 from framework.policies.ppo_shared_global_critic import ppo_shared_global_critic
-from policies.ppo_shared_global_critic_rec_ import ppo_shared_global_critic_rec
+from framework.policies.ppo_shared_global_critic_rec import ppo_shared_global_critic_rec
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
