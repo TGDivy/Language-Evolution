@@ -9,6 +9,7 @@ from pettingzoo.mpe import (
     simple_reference_v2,
     simple_spread_v2,
 )
+from scenarios import complex_ref
 
 import shutil
 import supersuit as ss
@@ -73,6 +74,8 @@ if __name__ == "__main__":
         env = simple_v2
     elif args.env == "communication":
         env = simple_reference_v2
+    elif args.env == "complex_communication":
+        env = complex_ref
     # elif args.env == "communication_full":
     #     env = simple_reference_v3
     #     args.n_agents = 2

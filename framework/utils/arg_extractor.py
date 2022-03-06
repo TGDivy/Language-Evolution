@@ -45,10 +45,11 @@ def get_args():
     parser.add_argument("--model",nargs="?",type=str,help="Policy to be used")
     parser.add_argument("--experiment_name",nargs="?",type=str,default="exp_1",help="Experiment name - to be used for building the experiment folder")
     parser.add_argument("--env",type=str,default="simple",help="environment for agent",)
-    parser.add_argument("--episode_len", type=int, default=25)
+    parser.add_argument("--episode_len", type=int, default=50)
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
     # fmt: on
+    args.num_steps = args.episode_len
 
     return args

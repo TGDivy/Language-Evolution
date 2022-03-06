@@ -48,12 +48,12 @@ class Scenario(BaseScenario):
         world.agents[3].goal_b = np_random.choice(world.landmarks)
         # random properties for agents
         for i, agent in enumerate(world.agents):
-            agent.color = np_random.choice(world.colors)
+            agent.color = world.colors[np.random.randint(0, 4)]
         # random properties for landmarks
-        world.landmarks[0].color = np_random.choice(world.colors)
-        world.landmarks[1].color = np_random.choice(world.colors)
-        world.landmarks[2].color = np_random.choice(world.colors)
-        world.landmarks[3].color = np_random.choice(world.colors)
+        world.landmarks[0].color = world.colors[np.random.randint(0, 4)]
+        world.landmarks[1].color = world.colors[np.random.randint(0, 4)]
+        world.landmarks[2].color = world.colors[np.random.randint(0, 4)]
+        world.landmarks[3].color = world.colors[np.random.randint(0, 4)]
         # special colors for goals
         world.agents[0].goal_a.color = world.agents[0].goal_b.color
         world.agents[1].goal_a.color = world.agents[1].goal_b.color
@@ -111,14 +111,14 @@ class Scenario(BaseScenario):
 
 
 class raw_env(SimpleEnv):
-    def __init__(self, N=4, local_ratio=0.5, max_cycles=25, continuous_actions=False):
+    def __init__(self, local_ratio=0.5, max_cycles=50, continuous_actions=False):
         assert (
             0.0 <= local_ratio <= 1.0
         ), "local_ratio is a proportion. Must be between 0 and 1."
         scenario = Scenario()
-        world = scenario.make_world(N)
+        world = scenario.make_world()
         super().__init__(scenario, world, max_cycles, continuous_actions, local_ratio)
-        self.metadata["name"] = "simple_spread_v2"
+        self.metadata["name"] = "complex_reference"
 
 
 env = make_env(raw_env)
