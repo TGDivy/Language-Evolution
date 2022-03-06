@@ -127,7 +127,6 @@ class ExperimentBuilder(nn.Module):
 
     def analyze_comms(self, comms, step):
         comms = np.array(comms, dtype=int)  # 50, 25, 3
-        print(comms.shape)
 
         total_unique_symbols_uttered = len(np.unique(comms))
         n_agents = self.args.n_agents
@@ -174,8 +173,8 @@ class ExperimentBuilder(nn.Module):
         rewards, dones = 0, False
 
         for step in tqdm(range(0, self.steps + 1), position=1):
-            # if (step) % (self.steps // 5) == 0:
-            #     self.score(step)
+            if (step) % (self.steps // 50) == 0:
+                self.score(step)
 
             new_episode = (step % self.args.episode_len) == 0
             actions = self.Policy.action(observation, new_episode=new_episode)
@@ -185,7 +184,7 @@ class ExperimentBuilder(nn.Module):
             self.Policy.store(total_steps, observation, rewards, dones)
 
             total_steps += 1
-            # if (step + 1) % (self.steps // 5) == 0:
-            #     self.save_video(step)
+            if (step + 1) % (self.steps // 5) == 0:
+                self.save_video(step)
 
-        # self.save_video(1e6, N=10)
+        self.save_video(1e6, N=10)

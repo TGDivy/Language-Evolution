@@ -169,13 +169,10 @@ if __name__ == "__main__":
         "|param|value|\n|-|-|\n%s"
         % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
-    print("Running EXP!")
 
     exp.run_experiment()
     single_env.close()
     parrallel_env.close()
     logger.close()
 
-    print("closing now!")
-    # sys.exit()
     os._exit(0)
