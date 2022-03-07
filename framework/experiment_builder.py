@@ -149,16 +149,17 @@ class ExperimentBuilder(nn.Module):
 
         episodes = 10
         vocab = self.args.action_space // 5
-        array = comms[:episodes, :, :]
+        array = comms[:episodes, :, :] + 1
         dummy = np.zeros((episodes, self.episode_len, n_agents + 1), dtype=np.int)
         dummy[:, :, :n_agents] = array
         dummy = np.hstack([dummy[i] for i in range(episodes)])
 
-        pallete = sns.color_palette("crest", vocab)
-        labels = "*ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        pallete = [(0.7, 0.7, 0.7)] + sns.color_palette("crest", vocab)
+        labels = "**ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         arrayShow = np.array([[pallete[i] for i in j] for j in dummy])
         patches = [
-            mpatches.Patch(color=pallete[i], label=labels[i]) for i in range(0, vocab)
+            mpatches.Patch(color=pallete[i], label=labels[i])
+            for i in range(1, vocab + 1)
         ]
 
         fig = plt.figure(figsize=(10, 10))
