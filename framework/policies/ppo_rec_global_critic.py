@@ -57,7 +57,7 @@ class ppo_rec_global_critic(base_policy):
                 agent_val_obs = val_obs[self.idx_starts + i]
 
                 if new_episode:
-                    self.agents.ppo.init_hidden(agent_obs.shape[0])
+                    agent.ppo.init_hidden(agent_obs.shape[0])
 
                 (action_p, action, value) = agent.choose_action(
                     agent_obs, agent_val_obs
@@ -78,14 +78,13 @@ class ppo_rec_global_critic(base_policy):
         obs_batch = T.tensor(observations, dtype=T.float, device="cuda")
         actions = []
         for i, agent in enumerate(self.agents):
-            agent_obs = observations[self.idx_starts + i]
+            agent_obs = obs_batch[i : i + 1]
 
             if new_episode:
                 agent.ppo.init_hidden(agent_obs.shape[0])
-            action = agent.choose_action_evaluate(obs_batch)
-            actions.append(action[0].numpy())
-
-        return actions
+            action = agent.choose_action_evaluate(agent_obs)
+            actions.append(action[0][0].item())
+        return np.array(actions)
 
     def store(self, total_steps, obs, rewards, dones):
         for i, agent in enumerate(self.agents):
@@ -250,9 +249,6 @@ class NNN(nn.Module):
         logits = self.actor(out)
         probs = Categorical(logits=logits)
         action = probs.sample()
-        # print(x.shape, out.shape)
-        # print(logits.shape, probs)
-        # print(action.shape)
 
         return action, probs
 

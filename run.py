@@ -27,6 +27,7 @@ from framework.policies.ppo_shared_global_critic_rec import ppo_shared_global_cr
 from framework.policies.ppo_shared_global_critic_rec_larg import (
     ppo_shared_global_critic_rec_large,
 )
+from framework.policies.ppo_rec_global_critic import ppo_rec_global_critic
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
@@ -149,6 +150,9 @@ if __name__ == "__main__":
     elif args.model == "ppo_shared_global_critic_rec_large":
         Policy = ppo_shared_global_critic_rec_large
         args.hidden_size = 128
+    elif args.model == "ppo_rec_global_critic":
+        Policy = ppo_rec_global_critic
+        args.hidden_size = 64
     Policy = Policy(args, logger)
     ###############################################################
 
