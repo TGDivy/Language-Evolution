@@ -268,9 +268,10 @@ class Agent:
         self,
         args,
         writer: SummaryWriter,
+        i=0,
     ):
         self.args = args
-
+        self.agent_i = i
         self.writer = writer
         action_space = args.action_space
         self.ppo = NNN(args.obs_space, args.n_agents, action_space, args.hidden_size)
@@ -400,14 +401,28 @@ class Agent:
         div_term = args.update_epochs
 
         self.writer.add_scalar(
-            f"losses/value_loss", total_v_loss.item() / div_term, global_step
+            f"losses/value_loss_agent_{self.agent_i}",
+            total_v_loss.item() / div_term,
+            global_step,
         )
         self.writer.add_scalar(
-            f"losses/policy_loss", total_pg_loss.item() / div_term, global_step
+            f"losses/policy_loss_agent_{self.agent_i}",
+            total_pg_loss.item() / div_term,
+            global_step,
         )
-        self.writer.add_scalar(f"losses/entropy", entropy_loss.item(), global_step)
-        self.writer.add_scalar(f"losses/approx_kl", approx_kl.item(), global_step)
-        self.writer.add_scalar(f"losses/clipfrac", np.mean(clipfracs), global_step)
-        self.writer.add_scalar(f"losses/explained_variance", explained_var, global_step)
+        self.writer.add_scalar(
+            f"losses/entropy_agent_{self.agent_i}", entropy_loss.item(), global_step
+        )
+        self.writer.add_scalar(
+            f"losses/approx_kl_agent_{self.agent_i}", approx_kl.item(), global_step
+        )
+        self.writer.add_scalar(
+            f"losses/clipfrac_agent_{self.agent_i}", np.mean(clipfracs), global_step
+        )
+        self.writer.add_scalar(
+            f"losses/explained_variance_agent_{self.agent_i}",
+            explained_var,
+            global_step,
+        )
 
         self.memory.clear_memory()
