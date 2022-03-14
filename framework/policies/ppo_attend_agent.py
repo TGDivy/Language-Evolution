@@ -230,33 +230,23 @@ class NNN(nn.Module):
 
         self.base_info = 2 + 2 + 15  # self, obj, landmarks
         self.agent_info = 23
-        self.extra_info = 30
         self.critic_extra_info = 128
 
-        self.agent_concater = nn.Sequential(
-            layer_init(nn.Linear(self.agent_info, self.extra_info)),
-            nn.Tanh(),
-        )
-
-        self.val_concater = nn.Sequential(
-            layer_init(
-                nn.Linear(self.base_info + self.extra_info, self.critic_extra_info)
-            ),
-            nn.Tanh(),
-        )
-
+        # self.gru_critic = nn.GRU(
+        #     self.critic_extra_info, hidden_size, self.gru_layers, batch_first=False
+        # )
         self.gru_critic = nn.GRU(
-            self.critic_extra_info, hidden_size, self.gru_layers, batch_first=False
+            self.inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
         )
         self.gru_actor = nn.GRU(
-            self.base_info + self.extra_info,
+            hidden_size // 2,
             hidden_size,
             self.gru_layers,
             batch_first=False,
         )
         self.gru_attend_agent = nn.GRU(
-            self.base_info + self.extra_info,
-            hidden_size,
+            self.base_info + self.agent_info,
+            hidden_size // 2,
             self.gru_layers,
             batch_first=False,
         )
@@ -275,8 +265,6 @@ class NNN(nn.Module):
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
-            layer_init(nn.Linear(layer_filters, layer_filters)),
-            act_fn(),
             layer_init(nn.Linear(layer_filters, action_space), std=0.01),
         )
 
@@ -288,41 +276,30 @@ class NNN(nn.Module):
             "cuda"
         )
 
-    # def get_hidden_repr(self, x, agent_info):
-    #     vocab_size = 20
-    #     extra_info = 3
-    #     inp = torch.zeros(vocab_size + extra_info)
-    #     inp[x + extra_info] = 1
-    #     inp[:extra_info] = agent_info
-    #     return self.agent_concater(inp)
-
     def get_value(self, val_x):
-        out = 0
-        for i in range(self.actors):
-            start = self.inp_hid_size * i
-            end = self.inp_hid_size * (i + 1)
-            base_x = val_x[:, :, start:end]
-
-            out += self.val_concater(self.attend_agent(base_x))
-
-        out = out / (self.actors - 1)
-        out, self.critic_hidden = self.gru_critic(out, self.critic_hidden)
+        out, self.critic_hidden = self.gru_critic(val_x, self.critic_hidden)
         value = self.critic(out)
         return value
 
     def attend_agent(self, x):
-        batch_size = x.shape[0]
-        hidden = T.zeros(self.gru_layers, batch_size, self.hidden_size).to("cuda")
-        base = x[:, :, 0:start]
+        seq, batch_size, obs = x.shape
+        x = x.reshape(seq * batch_size, obs)
+        base = x[:, 0 : self.base_info]
+        sequence = torch.zeros(
+            self.actors - 1, seq * batch_size, self.base_info + self.agent_info
+        ).to("cuda")
 
         for i in range(self.actors - 1):
             start = (self.base_info) + self.agent_info * i
             end = (self.base_info) + self.agent_info * (i + 1)
-            inp = x[:, :, start:end]
-            inp = torch.concat([base, inp], dim=2)
+            inp = x[:, start:end]
+            sequence[i] = torch.concat([base, inp], dim=1)
 
-            out, hidden = self.gru_attend_agent(inp, hidden)
-
+        hidden = T.zeros(self.gru_layers, seq * batch_size, self.hidden_size // 2).to(
+            "cuda"
+        )
+        out, hidden = self.gru_attend_agent(sequence, hidden)
+        out = out[-1].reshape(seq, batch_size, self.hidden_size // 2)
         return out
 
     def get_action(self, x):
