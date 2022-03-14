@@ -28,7 +28,7 @@ class ppo_rec_global_critic(base_policy):
 
         self.idx_starts = np.array([i * args.n_agents for i in range(0, args.num_envs)])
 
-        self.dont_train = []
+        self.do_train = []
 
     def save_agents(self, PATH):
         for i, agent in enumerate(self.agents):
@@ -39,13 +39,13 @@ class ppo_rec_global_critic(base_policy):
             agent.load(PATH)
 
     def load_agents_except_0(self, PATH):
-        self.dont_train = [0]
+        self.do_train = [0]
 
         for i, agent in enumerate(self.agents):
-            if i == 0:
-                for g in agent.optimizer.param_groups:
-                    g["lr"] = g["lr"] / 20
+            if i in self.do_train:
                 continue
+            for g in agent.optimizer.param_groups:
+                g["lr"] = g["lr"] / 20
             agent.load(PATH)
 
     def get_critic_obs(self, observations):
@@ -108,8 +108,8 @@ class ppo_rec_global_critic(base_policy):
 
     def store(self, total_steps, obs, rewards, dones):
         for i, agent in enumerate(self.agents):
-            if i in self.dont_train:
-                continue
+            # if i not in self.do_train:
+            #     continue
             done = T.Tensor(dones)[self.idx_starts + i]
             reward = T.tensor(rewards)[self.idx_starts + i]
 
@@ -320,7 +320,7 @@ class Agent:
         print(f"Save model agent_{self.agent_i} at {PATH}")
     
     def load(self, PATH):
-        self.ppo.load_state_dict(torch.load(PATH+f"/agent_{self.agent_i}"))
+        self.ppo.load_state_dict(torch.load(PATH+f"/agent_{0}"), strict=False)
         print(f"Load model agent_{self.agent_i} at {PATH}")
 
     # fmt:on
