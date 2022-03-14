@@ -19,7 +19,7 @@ from framework.utils.base import base_policy
 from torch.utils.tensorboard import SummaryWriter
 
 
-class ppo_no_scaling_rec_global_critic(base_policy):
+class ppo_attend_agent(base_policy):
     def __init__(self, args, writer):
         self.args = args
 
@@ -254,6 +254,12 @@ class NNN(nn.Module):
             self.gru_layers,
             batch_first=False,
         )
+        self.gru_attend_agent = nn.GRU(
+            self.base_info + self.extra_info,
+            hidden_size,
+            self.gru_layers,
+            batch_first=False,
+        )
 
         self.critic = nn.Sequential(
             layer_init(nn.Linear(hidden_size, layer_filters)),
@@ -282,44 +288,45 @@ class NNN(nn.Module):
             "cuda"
         )
 
-    def get_hidden_repr(self, x, agent_info):
-        vocab_size = 20
-        extra_info = 3
-        inp = torch.zeros(vocab_size + extra_info)
-        inp[x + extra_info] = 1
-        inp[:extra_info] = agent_info
-        return self.agent_concater(inp)
+    # def get_hidden_repr(self, x, agent_info):
+    #     vocab_size = 20
+    #     extra_info = 3
+    #     inp = torch.zeros(vocab_size + extra_info)
+    #     inp[x + extra_info] = 1
+    #     inp[:extra_info] = agent_info
+    #     return self.agent_concater(inp)
 
     def get_value(self, val_x):
         out = 0
         for i in range(self.actors):
-            end = self.inp_hid_size * (i + 1)
             start = self.inp_hid_size * i
+            end = self.inp_hid_size * (i + 1)
             base_x = val_x[:, :, start:end]
 
-            out_temp = 0
-            for j in range(self.actors - 1):
-                start = (self.base_info) + self.agent_info * j
-                end = (self.base_info) + self.agent_info * (j + 1)
-                out_temp += self.agent_concater(base_x[:, :, start:end])
-            out_temp = out_temp / (self.actors - 1)
-            out_temp = torch.concat([base_x[:, :, 0 : self.base_info], out_temp], 2)
-            out += self.val_concater(out_temp)
+            out += self.val_concater(self.attend_agent(base_x))
 
         out = out / (self.actors - 1)
         out, self.critic_hidden = self.gru_critic(out, self.critic_hidden)
         value = self.critic(out)
         return value
 
-    def get_action(self, x):
-        out = 0
+    def attend_agent(self, x):
+        batch_size = x.shape[0]
+        hidden = T.zeros(self.gru_layers, batch_size, self.hidden_size).to("cuda")
+        base = x[:, :, 0:start]
+
         for i in range(self.actors - 1):
             start = (self.base_info) + self.agent_info * i
             end = (self.base_info) + self.agent_info * (i + 1)
-            out += self.agent_concater(x[:, :, start:end])
-        out = out / (self.actors - 1)
-        out = torch.concat([x[:, :, 0 : self.base_info], out], 2)
+            inp = x[:, :, start:end]
+            inp = torch.concat([base, inp], dim=2)
 
+            out, hidden = self.gru_attend_agent(inp, hidden)
+
+        return out
+
+    def get_action(self, x):
+        out = self.attend_agent(x)
         out, self.actor_hidden = self.gru_actor(out, self.actor_hidden)
         logits = self.actor(out)
         probs = Categorical(logits=logits)

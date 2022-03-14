@@ -31,6 +31,7 @@ from framework.policies.ppo_rec_global_critic import ppo_rec_global_critic
 from framework.policies.ppo_no_scaling_rec_global_critic import (
     ppo_no_scaling_rec_global_critic,
 )
+from framework.policies.ppo_attend_agent import ppo_attend_agent
 
 import os
 from torch.utils.tensorboard import SummaryWriter
@@ -161,6 +162,10 @@ if __name__ == "__main__":
     elif args.model == "ppo_no_scaling_rec_global_critic":
         Policy = ppo_no_scaling_rec_global_critic
         args.hidden_size = 64
+    elif args.model == "ppo_attend_agent":
+        Policy = ppo_attend_agent
+        args.hidden_size = 64
+
     Policy = Policy(args, logger)
     if args.load_weights_name:
         PATH = os.path.abspath("experiments") + args.load_weights_name + "/saved_models"
