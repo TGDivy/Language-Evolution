@@ -12,7 +12,7 @@
 # python run.py --model "maddpg" --env "adversary" --experiment_name "v0" --total_memory 12 --episode_len 25 --batch_size 4 --n_episodes 40000 --num_layers 3 --num_filters 128 --communicate 0 --n_epochs 3
 
 # python run.py --model "ppo_rnn_policy_shared" --env "simple" --experiment_name "ppo-rnn" --episode_len 25 --num-envs 8
-python run.py --model "ppo_rec_global_critic" --env "full_communication_2" --experiment_name "main" --num-envs 256 --total-timesteps 25000 --learning-rate 0.0007 --update-epochs 10 --max-grad-norm 10 --episode_len 25
+python run.py --model "ppo_rec_global_critic" --env "full_communication_2" --experiment_name "reproduce" --num-envs 256 --total-timesteps 6250 --learning-rate 0.0007 --update-epochs 10 --max-grad-norm 10 --episode_len 25 --wandb True --load_weights_name "/ppo_rec_global_critic-full_communication_2-main"
 
 # python run.py --model "ppo_shared_global_critic_rec" --env "full_communication_3" --experiment_name "main" --num-envs 512 --total-timesteps 75000 --learning-rate 0.0007 --update-epochs 10 --max-grad-norm 10 --episode_len 25
 

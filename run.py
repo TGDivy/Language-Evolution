@@ -55,16 +55,17 @@ if __name__ == "__main__":
     os.mkdir(experiment_saved_models)
     os.mkdir(experiment_videos)
     ################################################
-    wandb.init(
-        project="language_evolution",
-        entity=None,
-        sync_tensorboard=True,
-        config=vars(args),
-        name=experiment_name,
-        monitor_gym=True,
-        save_code=True,
-        dir=os.path.abspath("experiments"),
-    )
+    if args.wandb:
+        wandb.init(
+            project="language_evolution",
+            entity=None,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=experiment_name,
+            monitor_gym=True,
+            save_code=True,
+            dir=os.path.abspath("experiments"),
+        )
     logger = SummaryWriter(experiment_logs)
 
     print("\n*****Parameters*****")
@@ -154,6 +155,9 @@ if __name__ == "__main__":
         Policy = ppo_rec_global_critic
         args.hidden_size = 64
     Policy = Policy(args, logger)
+    if args.load_weights_name:
+        PATH = os.path.abspath("experiments") + args.load_weights_name + "/saved_models"
+        Policy.load_agents(PATH)
     ###############################################################
 
     exp = ExperimentBuilder(
@@ -163,6 +167,7 @@ if __name__ == "__main__":
         Policy=Policy,
         experiment_name=experiment_name,
         logfolder=experiment_videos,
+        experiment_saved_models=experiment_saved_models,
         videofolder=experiment_videos,
         episode_len=args.episode_len,
         steps=args.total_timesteps,

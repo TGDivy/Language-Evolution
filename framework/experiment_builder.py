@@ -26,6 +26,7 @@ class ExperimentBuilder(nn.Module):
         Policy: base_policy,
         experiment_name,
         logfolder,
+        experiment_saved_models,
         videofolder,
         episode_len,
         steps,
@@ -43,6 +44,7 @@ class ExperimentBuilder(nn.Module):
         self.experiment_name = experiment_name
         self.experiment_logs = logfolder
         self.experiment_videos = videofolder
+        self.experiment_saved_models = experiment_saved_models
 
         self.logger = logger
 
@@ -121,6 +123,7 @@ class ExperimentBuilder(nn.Module):
             self.logger.add_scalar(f"dev/agent_{i}", np.mean(ereward), step)
 
         if self.best_score < np.mean(end_rewards):
+            self.Policy.save_agents(self.experiment_saved_models)
             self.best_score = np.mean(end_rewards)
 
         env.close()

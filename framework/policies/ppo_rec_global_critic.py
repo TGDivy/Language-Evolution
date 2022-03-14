@@ -24,9 +24,29 @@ class ppo_rec_global_critic(base_policy):
         self.args = args
 
         self.n_agents = args.n_agents
-        self.agents = [Agent(args, writer) for _ in range(args.n_agents)]
+        self.agents = [Agent(args, writer, i) for i in range(args.n_agents)]
 
         self.idx_starts = np.array([i * args.n_agents for i in range(0, args.num_envs)])
+
+        self.dont_train = []
+
+    def save_agents(self, PATH):
+        for i, agent in enumerate(self.agents):
+            agent.save(PATH)
+
+    def load_agents(self, PATH):
+        for i, agent in enumerate(self.agents):
+            agent.load(PATH)
+
+    def load_agents_except_0(self, PATH):
+        # self.dont_train = [0]
+
+        for i, agent in enumerate(self.agents):
+            if i == 0:
+                for g in agent.optimizer.param_groups:
+                    g["lr"] = g["lr"] / 20
+                continue
+            agent.load(PATH)
 
     def get_critic_obs(self, observations):
         val_obs_ = T.tensor(observations).reshape(self.args.num_envs, self.n_agents, -1)
@@ -88,6 +108,8 @@ class ppo_rec_global_critic(base_policy):
 
     def store(self, total_steps, obs, rewards, dones):
         for i, agent in enumerate(self.agents):
+            if i in self.dont_train:
+                continue
             done = T.Tensor(dones)[self.idx_starts + i]
             reward = T.tensor(rewards)[self.idx_starts + i]
 
@@ -292,6 +314,15 @@ class Agent:
     # fmt:off
     def remember(self, observations, val_obs, action_p, action, vals, reward, done):
         self.memory.store_memory(observations, val_obs, action_p, action, vals, reward, done)
+    
+    def save(self, PATH):
+        torch.save(self.ppo.state_dict(), PATH+f"/agent_{self.agent_i}")
+        print(f"Save model agent_{self.agent_i} at {PATH}")
+    
+    def load(self, PATH):
+        self.ppo.load_state_dict(torch.load(PATH+f"/agent_{self.agent_i}"))
+        print(f"Load model agent_{self.agent_i} at {PATH}")
+
     # fmt:on
     def choose_action_evaluate(self, obs):
         with torch.no_grad():
