@@ -10,7 +10,7 @@ class Scenario(BaseScenario):
     def make_world(self, N):
         world = World()
         # set any world properties first
-        world.dim_c = 5 * N
+        world.dim_c = 20
         self.N = N
         world.collaborative = True  # whether agents share rewards
         # add agents
@@ -89,19 +89,27 @@ class Scenario(BaseScenario):
         for other in world.agents:
             if other is agent:
                 continue
+            pos = other.state.p_pos - agent.state.p_pos
+            other_agents.append(pos)
             other_agents.append(np.array(other.color[0]))
             other_agents.append(other.state.c)
 
         # get other landmarks information
-        other_landmarks = []
-        for entity in world.landmarks:
-            other_landmarks.append(entity.state.p_pos - agent.state.p_pos)
-            other_landmarks.append(np.array(entity.color[0]))
+        other_landmarks = [np.zeros(3) for i in range(5)]
+        for i, entity in enumerate(world.landmarks):
+            pos = entity.state.p_pos - agent.state.p_pos
+            other_landmarks[i][0:2] = pos
+            other_landmarks[i][2] = entity.color[0]
 
         # get goal info
         goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
 
         full = np.hstack([agent.state.p_vel] + [goal] + other_landmarks + other_agents)
+
+        # print(goal)
+        # print(full)
+        # print(full.shape)
+        # print("-" * 20)
 
         return full
 
