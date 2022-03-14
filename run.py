@@ -157,7 +157,7 @@ if __name__ == "__main__":
     Policy = Policy(args, logger)
     if args.load_weights_name:
         PATH = os.path.abspath("experiments") + args.load_weights_name + "/saved_models"
-        Policy.load_agents(PATH)
+        Policy.load_agents_except_0(PATH)
     ###############################################################
 
     exp = ExperimentBuilder(

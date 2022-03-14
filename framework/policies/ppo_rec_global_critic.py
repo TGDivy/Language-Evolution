@@ -39,7 +39,7 @@ class ppo_rec_global_critic(base_policy):
             agent.load(PATH)
 
     def load_agents_except_0(self, PATH):
-        # self.dont_train = [0]
+        self.dont_train = [0]
 
         for i, agent in enumerate(self.agents):
             if i == 0:
