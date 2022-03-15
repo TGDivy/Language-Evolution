@@ -187,7 +187,8 @@ class ExperimentBuilder(nn.Module):
             self.Policy.store(total_steps, observation, rewards, dones)
 
             total_steps += 1
-            # if (step + 1) % (self.steps // 5) == 0:
-            #     self.save_video(step)
 
-        self.save_video(1e6, N=10)
+            if self.args.video and (step + 1) % (self.steps // 5) == 0:
+                self.save_video(step)
+        if self.args.video:
+            self.save_video(1e6, N=10)

@@ -20,10 +20,10 @@
 
 python run.py \
     --model "ppo_attend_agent" \
-    --env "full_communication_3" \
+    --env "full_communication_2" \
     --experiment_name "global_crit_smaller" \
-    --num-envs 512 \
-    --total-timesteps 75000 \
+    --num-envs 256 \
+    --total-timesteps 25000 \
     --learning-rate 0.0007 \
     --update-epochs 12 \
     --max-grad-norm 10 \

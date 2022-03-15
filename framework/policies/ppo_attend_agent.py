@@ -239,13 +239,13 @@ class NNN(nn.Module):
             self.inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
         )
         self.gru_actor = nn.GRU(
-            hidden_size // 2,
+            self.base_info + hidden_size // 2,
             hidden_size,
             self.gru_layers,
             batch_first=False,
         )
         self.gru_attend_agent = nn.GRU(
-            self.base_info + self.agent_info,
+            self.agent_info,
             hidden_size // 2,
             self.gru_layers,
             batch_first=False,
@@ -285,21 +285,22 @@ class NNN(nn.Module):
         seq, batch_size, obs = x.shape
         x = x.reshape(seq * batch_size, obs)
         base = x[:, 0 : self.base_info]
-        sequence = torch.zeros(
-            self.actors - 1, seq * batch_size, self.base_info + self.agent_info
-        ).to("cuda")
+        sequence = torch.zeros(self.actors - 1, seq * batch_size, self.agent_info).to(
+            "cuda"
+        )
 
         for i in range(self.actors - 1):
             start = (self.base_info) + self.agent_info * i
             end = (self.base_info) + self.agent_info * (i + 1)
             inp = x[:, start:end]
-            sequence[i] = torch.concat([base, inp], dim=1)
+            sequence[i] = inp
 
         hidden = T.zeros(self.gru_layers, seq * batch_size, self.hidden_size // 2).to(
             "cuda"
         )
         out, hidden = self.gru_attend_agent(sequence, hidden)
-        out = out[-1].reshape(seq, batch_size, self.hidden_size // 2)
+        out = torch.concat([base, out[-1]], dim=1)
+        out = out.reshape(seq, batch_size, self.base_info + self.hidden_size // 2)
         return out
 
     def get_action(self, x):

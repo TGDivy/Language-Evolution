@@ -49,6 +49,7 @@ def get_args():
     parser.add_argument("--env",type=str,default="simple",help="environment for agent",)
     parser.add_argument("--episode_len", type=int, default=50)
     parser.add_argument("--wandb", type=lambda x: bool(strtobool(x)), default=True)
+    parser.add_argument("--video", type=lambda x: bool(strtobool(x)), default=True)
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
