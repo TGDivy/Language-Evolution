@@ -21,7 +21,7 @@
 python run.py \
     --model "ppo_rec_global_critic" \
     --env "full_communication_3" \
-    --experiment_name "normal_map" \
+    --experiment_name "not_normal_map" \
     --num-envs 512 \
     --total-timesteps 50000 \
     --learning-rate 0.0007 \
