@@ -87,16 +87,18 @@ class Scenario(BaseScenario):
         # get other agent information
         other_agents = [np.zeros(3) for i in range(5)]
         comms = np.zeros(world.dim_c)
+        k = 0
         for other in world.agents:
             if other is agent:
                 continue
             pos = other.state.p_pos - agent.state.p_pos
-            other_agents[i][0:2] = pos
-            other_agents[i][2] = other.color[0]
+            other_agents[k][0:2] = pos
+            other_agents[k][2] = other.color[0]
             # other_agents.append(pos)
             # other_agents.append(np.array(other.color[0]))
             # other_agents.append(other.state.c)
             comms += other.state.c
+            k += 1
 
         # get other landmarks information
         other_landmarks = [np.zeros(3) for i in range(5)]
