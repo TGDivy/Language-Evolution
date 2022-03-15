@@ -81,56 +81,18 @@ class Scenario(BaseScenario):
         all_rewards = sum(self.reward(agent, world) for agent in world.agents)
         return all_rewards / len(world.agents)
 
-    def observation(self, agent, world):
-        # goal color
-
-        # get other agent information
-        other_agents = []
-        for other in world.agents:
-            if other is agent:
-                continue
-            pos = other.state.p_pos - agent.state.p_pos
-            other_agents.append(pos)
-            other_agents.append(np.array(other.color[0]))
-            other_agents.append(other.state.c)
-
-        # get other landmarks information
-        other_landmarks = [np.zeros(3) for i in range(5)]
-        for i, entity in enumerate(world.landmarks):
-            pos = entity.state.p_pos - agent.state.p_pos
-            other_landmarks[i][0:2] = pos
-            other_landmarks[i][2] = entity.color[0]
-
-        # get goal info
-        goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
-
-        full = np.hstack([agent.state.p_vel] + [goal] + other_landmarks + other_agents)
-
-        # print(goal)
-        # print(full)
-        # print(full.shape)
-        # print("-" * 20)
-
-        return full
-
     # def observation(self, agent, world):
     #     # goal color
 
     #     # get other agent information
-    #     other_agents = [np.zeros(3) for i in range(5)]
-    #     comms = np.zeros(world.dim_c)
-    #     k = 0
+    #     other_agents = []
     #     for other in world.agents:
     #         if other is agent:
     #             continue
     #         pos = other.state.p_pos - agent.state.p_pos
-    #         other_agents[k][0:2] = pos
-    #         other_agents[k][2] = other.color[0]
-    #         # other_agents.append(pos)
-    #         # other_agents.append(np.array(other.color[0]))
-    #         # other_agents.append(other.state.c)
-    #         comms += other.state.c
-    #         k += 1
+    #         other_agents.append(pos)
+    #         other_agents.append(np.array(other.color[0]))
+    #         other_agents.append(other.state.c)
 
     #     # get other landmarks information
     #     other_landmarks = [np.zeros(3) for i in range(5)]
@@ -142,9 +104,7 @@ class Scenario(BaseScenario):
     #     # get goal info
     #     goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
 
-    #     full = np.hstack(
-    #         [agent.state.p_vel] + [goal] + other_landmarks + other_agents + [comms]
-    #     )
+    #     full = np.hstack([agent.state.p_vel] + [goal] + other_landmarks + other_agents)
 
     #     # print(goal)
     #     # print(full)
@@ -152,6 +112,46 @@ class Scenario(BaseScenario):
     #     # print("-" * 20)
 
     #     return full
+
+    def observation(self, agent, world):
+        # goal color
+
+        # get other agent information
+        other_agents = [np.zeros(3) for i in range(5)]
+        comms = np.zeros(world.dim_c)
+        k = 0
+        for other in world.agents:
+            if other is agent:
+                continue
+            pos = other.state.p_pos - agent.state.p_pos
+            other_agents[k][0:2] = pos
+            other_agents[k][2] = other.color[0]
+            # other_agents.append(pos)
+            # other_agents.append(np.array(other.color[0]))
+            # other_agents.append(other.state.c)
+            comms += other.state.c
+            k += 1
+
+        # get other landmarks information
+        other_landmarks = [np.zeros(3) for i in range(5)]
+        for i, entity in enumerate(world.landmarks):
+            pos = entity.state.p_pos - agent.state.p_pos
+            other_landmarks[i][0:2] = pos
+            other_landmarks[i][2] = entity.color[0]
+
+        # get goal info
+        goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
+
+        full = np.hstack(
+            [agent.state.p_vel] + [goal] + other_landmarks + other_agents + [comms]
+        )
+
+        # print(goal)
+        # print(full)
+        # print(full.shape)
+        # print("-" * 20)
+
+        return full
 
 
 class raw_env(SimpleEnv):

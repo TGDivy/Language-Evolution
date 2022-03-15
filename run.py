@@ -32,7 +32,7 @@ from framework.policies.ppo_no_scaling_rec_global_critic import (
     ppo_no_scaling_rec_global_critic,
 )
 from framework.policies.ppo_attend_agent import ppo_attend_agent
-
+from framework.policies.ppo_rec_global_critic_fixed import ppo_rec_global_critic_fixed
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
@@ -40,7 +40,8 @@ import warnings
 warnings.filterwarnings("ignore")
 import sys
 
-if __name__ == "__main__":
+
+def main():
     args = get_args()  # get arguments from command line
 
     # Generate Directories##########################
@@ -165,6 +166,9 @@ if __name__ == "__main__":
     elif args.model == "ppo_attend_agent":
         Policy = ppo_attend_agent
         args.hidden_size = 64
+    elif args.model == "ppo_rec_global_critic_fixed":
+        Policy = ppo_rec_global_critic_fixed
+        args.hidden_size = 64
 
     Policy = Policy(args, logger)
     if args.load_weights_name:
@@ -197,3 +201,7 @@ if __name__ == "__main__":
     logger.close()
 
     os._exit(0)
+
+
+if __name__ == "__main__":
+    main()
