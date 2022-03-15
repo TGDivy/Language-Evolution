@@ -122,7 +122,7 @@ class ExperimentBuilder(nn.Module):
             self.logger.add_scalar(f"dev/agent_{i}", np.mean(ereward), step)
 
         if self.best_score < np.mean(end_rewards):
-            self.Policy.save_agents(self.experiment_saved_models)
+            # self.Policy.save_agents(self.experiment_saved_models)
             self.best_score = np.mean(end_rewards)
 
         env.close()
