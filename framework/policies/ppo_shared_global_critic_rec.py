@@ -28,6 +28,12 @@ class ppo_shared_global_critic_rec(base_policy):
         self.n_agents = args.n_agents
         self.idx_starts = np.array([i * args.n_agents for i in range(0, args.num_envs)])
 
+    def save_agents(self, PATH):
+        self.agent.save(PATH)
+
+    def load_agents(self, PATH):
+        self.agent.load(PATH)
+
     def get_critic_obs(self, observations):
         val_obs_ = T.tensor(observations).reshape(self.args.num_envs, self.n_agents, -1)
         val_obs = T.zeros(
@@ -187,17 +193,25 @@ class NNN(nn.Module):
 
         self.hidden_size = hidden_size
         self.gru_layers = 1
-        inp_hid_size = np.array(obs_shape).prod()
+        self.inp_hid_size = np.array(obs_shape).prod()
+        self.actors = actors
 
         act_fn = nn.ReLU
 
         layer_filters = 128
 
+        val_obs_repr_size = 64
+
+        self.val_concater = nn.Sequential(
+            layer_init(nn.Linear(self.inp_hid_size, val_obs_repr_size)),
+            nn.Tanh(),
+        )
+
         self.gru_critic = nn.GRU(
-            inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
+            val_obs_repr_size, hidden_size, self.gru_layers, batch_first=False
         )
         self.gru_actor = nn.GRU(
-            inp_hid_size, hidden_size, self.gru_layers, batch_first=False
+            self.inp_hid_size, hidden_size, self.gru_layers, batch_first=False
         )
 
         self.critic = nn.Sequential(
@@ -228,7 +242,18 @@ class NNN(nn.Module):
         )
 
     def get_value(self, val_x):
-        out, self.critic_hidden = self.gru_critic(val_x, self.critic_hidden)
+        out = 0
+        for i in range(self.actors):
+            end = self.inp_hid_size * (i + 1)
+            start = self.inp_hid_size * i
+            base_x = val_x[:, :, start:end]
+            self_or_not = torch.zeros(base_x.size(0), base_x.size(1), 1).cuda() + (
+                i != 0
+            )
+            self_or_not = torch.concat([base_x, self_or_not], 2)
+            out += self.val_concater(base_x)
+
+        out, self.critic_hidden = self.gru_critic(out, self.critic_hidden)
         value = self.critic(out)
         return value
 
@@ -237,9 +262,6 @@ class NNN(nn.Module):
         logits = self.actor(out)
         probs = Categorical(logits=logits)
         action = probs.sample()
-        # print(x.shape, out.shape)
-        # print(logits.shape, probs)
-        # print(action.shape)
 
         return action, probs
 
@@ -252,6 +274,79 @@ class NNN(nn.Module):
         )
 
         return (action, prob, probs.entropy(), value)
+
+
+# class NNN(nn.Module):
+#     def __init__(self, obs_shape, actors, action_space, hidden_size):
+#         super(NNN, self).__init__()
+
+#         self.hidden_size = hidden_size
+#         self.gru_layers = 1
+#         inp_hid_size = np.array(obs_shape).prod()
+
+#         act_fn = nn.ReLU
+
+#         layer_filters = 128
+
+#         self.gru_critic = nn.GRU(
+#             inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
+#         )
+#         self.gru_actor = nn.GRU(
+#             inp_hid_size, hidden_size, self.gru_layers, batch_first=False
+#         )
+
+#         self.critic = nn.Sequential(
+#             layer_init(nn.Linear(hidden_size, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, 1), std=1.0),
+#         )
+#         self.actor = nn.Sequential(
+#             layer_init(nn.Linear(hidden_size, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, action_space), std=0.01),
+#         )
+
+#     def init_hidden(self, batch_size=1):
+#         self.actor_hidden = T.zeros(self.gru_layers, batch_size, self.hidden_size).to(
+#             "cuda"
+#         )
+#         self.critic_hidden = T.zeros(self.gru_layers, batch_size, self.hidden_size).to(
+#             "cuda"
+#         )
+
+#     def get_value(self, val_x):
+#         out, self.critic_hidden = self.gru_critic(val_x, self.critic_hidden)
+#         value = self.critic(out)
+#         return value
+
+#     def get_action(self, x):
+#         out, self.actor_hidden = self.gru_actor(x, self.actor_hidden)
+#         logits = self.actor(out)
+#         probs = Categorical(logits=logits)
+#         action = probs.sample()
+#         # print(x.shape, out.shape)
+#         # print(logits.shape, probs)
+#         # print(action.shape)
+
+#         return action, probs
+
+#     def get_action_and_value(self, x, val_x, action_=None):
+#         action, probs = self.get_action(x)
+#         value = self.get_value(val_x)
+
+#         prob = (
+#             probs.log_prob(action_) if action_ is not None else probs.log_prob(action)
+#         )
+
+#         return (action, prob, probs.entropy(), value)
 
 
 class Agent:
@@ -282,6 +377,20 @@ class Agent:
     # fmt:off
     def remember(self, observations, val_obs, action_p, action, vals, reward, done):
         self.memory.store_memory(observations, val_obs, action_p, action, vals, reward, done)
+
+    def save(self, PATH):
+        torch.save(self.ppo.state_dict(), PATH+f"/agent_{0}")
+        print(f"Save model agent_{0} at {PATH}")
+    
+    def load(self, PATH):
+        fname = PATH+f"/agent_{0}"
+        if os.path.isfile(fname):
+            self.ppo.load_state_dict(torch.load(fname), strict=False)
+            print(f"Load model agent_{0} at {fname}")
+        else:
+            fname = PATH+f"/agent_{0}"
+            self.ppo.load_state_dict(torch.load(fname), strict=False)
+            print(f"Load model agent_{0} at {fname}")
     # fmt:on
     def choose_action_evaluate(self, obs):
         with torch.no_grad():

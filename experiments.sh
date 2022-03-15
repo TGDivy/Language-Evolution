@@ -19,9 +19,9 @@
 # python run.py --model "ppo_no_scaling_rec_global_critic" --env "full_communication_3" --experiment_name "no_init_share_representation" --num-envs 512 --total-timesteps 75000 --learning-rate 0.0007 --update-epochs 10 --max-grad-norm 10 --episode_len 25 --wandb True #--load_weights_name "/ppo_no_scaling_rec_global_critic-full_communication_2-main"
 
 python run.py \
-    --model "ppo_rec_global_critic_fixed" \
+    --model "ppo_shared_global_critic_rec" \
     --env "full_communication_2" \
-    --experiment_name "sum_com2" \
+    --experiment_name "sum_com" \
     --num-envs 512 \
     --total-timesteps 25000 \
     --learning-rate 0.0007 \
@@ -29,14 +29,12 @@ python run.py \
     --max-grad-norm 10 \
     --episode_len 25 \
     --wandb True \
-    --video True \
-    --load_weights_name "/ppo_rec_global_critic_fixed-full_communication_2-sum_com"
-
+    --video True
 
 python run.py \
-    --model "ppo_rec_global_critic_fixed" \
+    --model "ppo_shared_global_critic_rec" \
     --env "full_communication_3" \
-    --experiment_name "sum_com2" \
+    --experiment_name "sum_com" \
     --num-envs 512 \
     --total-timesteps 50000 \
     --learning-rate 0.0007 \
@@ -45,12 +43,12 @@ python run.py \
     --episode_len 25 \
     --wandb True \
     --video True \
-    --load_weights_name "/ppo_rec_global_critic_fixed-full_communication_2-sum_com2"
+    --load_weights_name "/ppo_shared_global_critic_rec-full_communication_2-sum_com"
 
 python run.py \
-    --model "ppo_rec_global_critic_fixed" \
+    --model "ppo_shared_global_critic_rec" \
     --env "full_communication_4" \
-    --experiment_name "sum_com2" \
+    --experiment_name "sum_com" \
     --num-envs 512 \
     --total-timesteps 100000 \
     --learning-rate 0.0007 \
@@ -59,7 +57,7 @@ python run.py \
     --episode_len 25 \
     --wandb True \
     --video True \
-    --load_weights_name "/ppo_rec_global_critic_fixed-full_communication_3-sum_com2"
+    --load_weights_name "/ppo_shared_global_critic_rec-full_communication_3-sum_com"
 
 # python run.py --model "ppo_policy3" --env "simple" --experiment_name "test" --episode_len 25 --num-envs 8
 # python run.py --model "ppo_policy3_shared" --env "communication_full" --experiment_name "reference_shared_info" --episode_len 25 --num-envs 8
