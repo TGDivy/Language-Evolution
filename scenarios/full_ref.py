@@ -85,14 +85,18 @@ class Scenario(BaseScenario):
         # goal color
 
         # get other agent information
-        other_agents = []
+        other_agents = [np.zeros(3) for i in range(5)]
+        comms = np.zeros(world.dim_c)
         for other in world.agents:
             if other is agent:
                 continue
             pos = other.state.p_pos - agent.state.p_pos
-            other_agents.append(pos)
-            other_agents.append(np.array(other.color[0]))
-            other_agents.append(other.state.c)
+            other_agents[i][0:2] = pos
+            other_agents[i][2] = other.color[0]
+            # other_agents.append(pos)
+            # other_agents.append(np.array(other.color[0]))
+            # other_agents.append(other.state.c)
+            comms += other.state.c
 
         # get other landmarks information
         other_landmarks = [np.zeros(3) for i in range(5)]
@@ -104,7 +108,9 @@ class Scenario(BaseScenario):
         # get goal info
         goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
 
-        full = np.hstack([agent.state.p_vel] + [goal] + other_landmarks + other_agents)
+        full = np.hstack(
+            [agent.state.p_vel] + [goal] + other_landmarks + other_agents + [comms]
+        )
 
         # print(goal)
         # print(full)
