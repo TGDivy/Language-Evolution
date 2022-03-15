@@ -5,7 +5,6 @@ import os
 from tqdm import tqdm
 from stable_baselines3.common.vec_env import VecVideoRecorder, DummyVecEnv
 from torch.utils.tensorboard import SummaryWriter
-from torchvision.io import read_video
 from framework.utils.base import base_policy
 import shutil
 import numpy as np
@@ -51,6 +50,7 @@ class ExperimentBuilder(nn.Module):
         self.best_score = -1000
 
     def save_video(self, step, N=2):
+        from torchvision.io import read_video
         import time
 
         episode_len = self.episode_len
@@ -61,7 +61,6 @@ class ExperimentBuilder(nn.Module):
             video_length=episode_len - 1,
             name_prefix=f"{self.experiment_name}-{step}",
         )
-        import time
 
         for _ in range(N):
             obs = env.reset()
@@ -188,7 +187,7 @@ class ExperimentBuilder(nn.Module):
             self.Policy.store(total_steps, observation, rewards, dones)
 
             total_steps += 1
-            if (step + 1) % (self.steps // 5) == 0:
-                self.save_video(step)
+            # if (step + 1) % (self.steps // 5) == 0:
+            #     self.save_video(step)
 
         self.save_video(1e6, N=10)
