@@ -28,7 +28,7 @@ python run.py \
     --update-epochs 12 \
     --max-grad-norm 10 \
     --episode_len 25 \
-    --wandb False \
+    --wandb True \
     --video False
 
 # python run.py --model "ppo_policy3" --env "simple" --experiment_name "test" --episode_len 25 --num-envs 8
