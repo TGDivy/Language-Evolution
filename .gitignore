@@ -12,7 +12,7 @@ pettingzoo/mpe/_mpe_utils/__pycache__/core.cpython-39.pyc
 *events.out.tfevents*
 pettingzoo/mpe/scenarios/__pycache__/simple_reference.cpython-39.pyc
 wandb/
-*/agent_
+# */agent_
 experiments/ppo_no_scaling_rec_global_critic-full_communication_2-init_prev0/saved_models/agent_0
 experiments/ppo_no_scaling_rec_global_critic-full_communication_2-init_prev0/saved_models/agent_1
 experiments/ppo_no_scaling_rec_global_critic-full_communication_2-main/saved_models/agent_0
