@@ -21,15 +21,15 @@
 python run.py \
     --model "ppo_attend_agent" \
     --env "full_communication_3" \
-    --experiment_name "not_attend" \
+    --experiment_name "not_attend_" \
     --num-envs 256 \
     --total-timesteps 25000 \
     --learning-rate 0.0007 \
-    --update-epochs 12 \
+    --update-epochs 10 \
     --max-grad-norm 10 \
     --episode_len 25 \
     --wandb True \
-    --video False
+    --video True
 
 # python run.py --model "ppo_policy3" --env "simple" --experiment_name "test" --episode_len 25 --num-envs 8
 # python run.py --model "ppo_policy3_shared" --env "communication_full" --experiment_name "reference_shared_info" --episode_len 25 --num-envs 8

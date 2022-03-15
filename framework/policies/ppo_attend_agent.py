@@ -131,13 +131,16 @@ class ppo_attend_agent(base_policy):
 class PPOTrainer:
     def __init__(self, args, num_steps, num_envs, obs_space, gamma, gae_lambda):
         self.args = args
-        self.num_steps = num_steps
         self.num_envs = num_envs
         self.batch_size = args.batch_size
         self.obs_space = obs_space
         self.gae = True
         self.gamma = gamma
         self.gae_lambda = gae_lambda
+        self.base_info = 2 + 2 + 15  # self, obj, landmarks
+        self.agent_info = 23
+        self.n_agents = args.n_agents
+        self.num_steps = num_steps*(self.n_agents-1)
         self.clear_memory()
 
     def create_training_data(self):
@@ -152,15 +155,21 @@ class PPOTrainer:
         return b_obs, b_val_obs, b_logprobs, b_actions, b_advantages, b_returns, b_values
 
     def store_memory(self, observations, val_observations, logprobs,action,vals,reward,done):
-        c = self.counter
-        self.obs[c] = observations
-        self.valobs[c] = val_observations
+        c = self.counter *2
+        
+        base = observations[:, 0:self.base_info]
+        for i in range(self.n_agents-1):
+            start = (self.base_info) + self.agent_info * i
+            end = (self.base_info) + self.agent_info * (i + 1)
+            obs = torch.concat([base, observations[:, start:end]], dim=1)
+            self.obs[c+i] = obs
+            self.valobs[c+i] = val_observations
 
-        self.logprobs[c] = logprobs
-        self.actions[c] = action
-        self.values[c] = vals
-        self.rewards[c] = reward
-        self.dones[c] = done
+            self.logprobs[c+i] = logprobs
+            self.actions[c+i] = action
+            self.values[c+i] = vals
+            self.rewards[c+i] = reward
+            self.dones[c+i] = done
 
         self.counter += 1
 
@@ -198,7 +207,7 @@ class PPOTrainer:
     def clear_memory(self):
         space = (self.num_steps, self.num_envs)
 
-        self.obs = T.zeros(space + self.obs_space)
+        self.obs = T.zeros(space + (self.base_info+self.agent_info,))
         self.valobs = T.zeros(space + (self.obs_space[0]*self.args.n_agents,))
         self.logprobs = T.zeros(space)
         self.actions = T.zeros(space)
@@ -272,43 +281,22 @@ class NNN(nn.Module):
         value = self.critic(out)
         return value
 
-    # def attend_agent(self, x):
-    #     seq, batch_size, obs = x.shape
-    #     x = x.reshape(seq * batch_size, obs)
-    #     base = x[:, 0 : self.base_info]
-    #     sequence = torch.zeros(self.actors - 1, seq * batch_size, self.agent_info).to(
-    #         "cuda"
-    #     )
-
-    #     for i in range(self.actors - 1):
-    #         start = (self.base_info) + self.agent_info * i
-    #         end = (self.base_info) + self.agent_info * (i + 1)
-    #         inp = x[:, start:end]
-    #         sequence[i] = inp
-
-    #     hidden = T.zeros(self.gru_layers, seq * batch_size, self.hidden_size // 2).to(
-    #         "cuda"
-    #     )
-    #     out, hidden = self.gru_attend_agent(sequence, hidden)
-    #     out = torch.concat([base, out[-1]], dim=1)
-    #     out = out.reshape(seq, batch_size, self.base_info + self.hidden_size // 2)
-    #     return out
-    def recurs(self, x):
-        seq, batch_size, obs = x.shape
-        outs = torch.zeros(seq, batch_size, self.hidden_size).to("cuda")
-        base = x[:, :, 0 : self.base_info]
-        for i in range(seq):
-            cs = x[i : i + 1]
-            for j in range(self.actors - 1):
-                start = (self.base_info) + self.agent_info * j
-                end = (self.base_info) + self.agent_info * (j + 1)
-                inp = torch.concat([base[i : i + 1], cs[:, :, start:end]], dim=2)
-                out, self.actor_hidden = self.gru_actor(inp, self.actor_hidden)
-            outs[i] = out
-        return out
+    # def recurs(self, x):
+    # seq, batch_size, obs = x.shape
+    # outs = torch.zeros(seq, batch_size, self.hidden_size).to("cuda")
+    # base = x[:, :, 0 : self.base_info]
+    # for i in range(seq):
+    #     cs = x[i : i + 1]
+    #     for j in range(self.actors - 1):
+    #         start = (self.base_info) + self.agent_info * j
+    #         end = (self.base_info) + self.agent_info * (j + 1)
+    #         inp = torch.concat([base[i : i + 1], cs[:, :, start:end]], dim=2)
+    #         out, self.actor_hidden = self.gru_actor(inp, self.actor_hidden)
+    #     outs[i] = out
+    # return out
 
     def get_action(self, x):
-        out = self.recurs(x)
+        out, self.actor_hidden = self.gru_actor(x, self.actor_hidden)
         logits = self.actor(out)
         probs = Categorical(logits=logits)
         action = probs.sample()
@@ -351,6 +339,8 @@ class Agent:
         self.optimizer = optim.Adam(
             self.ppo.parameters(), lr=args.learning_rate, eps=1e-5
         )
+        self.base_info = 2 + 2 + 15  # self, obj, landmarks
+        self.agent_info = 23
 
     # fmt:off
     def remember(self, observations, val_obs, action_p, action, vals, reward, done):
@@ -365,17 +355,32 @@ class Agent:
         print(f"Load model agent_{self.agent_i} at {PATH}")
 
     # fmt:on
-    def choose_action_evaluate(self, obs):
+    def choose_action_evaluate(self, observations):
         with torch.no_grad():
-            obs_space = np.array(self.args.obs_space).prod()
-            obs = obs.reshape(1, -1, obs_space)
+            base = observations[:, 0 : self.base_info]
+            obs = torch.zeros(
+                self.args.n_agents - 1, 1, self.base_info + self.agent_info
+            ).to("cuda")
+            for i in range(self.args.n_agents - 1):
+                start = (self.base_info) + self.agent_info * i
+                end = (self.base_info) + self.agent_info * (i + 1)
+                obs[i, 0] = torch.concat([base, observations[:, start:end]], dim=1)
             action, _ = self.ppo.get_action(obs)
-            return action.cpu()
+            return [action[-1].cpu()]
 
     def choose_action(self, observations, val_obs):
         with torch.no_grad():
             obs_space = np.array(self.args.obs_space).prod()
-            observations = observations.reshape(1, -1, obs_space)
+            batch_size = observations.shape[0]
+            base = observations[:, 0 : self.base_info]
+            obs = torch.zeros(
+                self.args.n_agents - 1, batch_size, self.base_info + self.agent_info
+            ).to("cuda")
+            for i in range(self.args.n_agents - 1):
+                start = (self.base_info) + self.agent_info * i
+                end = (self.base_info) + self.agent_info * (i + 1)
+                obs[i] = torch.concat([base, observations[:, start:end]], dim=1)
+
             val_obs = val_obs.reshape(1, -1, obs_space * self.args.n_agents)
 
             (
@@ -383,11 +388,13 @@ class Agent:
                 probs,
                 _,
                 value,
-            ) = self.ppo.get_action_and_value(observations, val_obs)
+            ) = self.ppo.get_action_and_value(obs, val_obs)
+
+            # print(action.shape)
 
             return (
-                probs.cpu(),
-                action.cpu(),
+                probs.cpu()[-1],
+                action.cpu()[-1],
                 value.cpu(),
             )
 
