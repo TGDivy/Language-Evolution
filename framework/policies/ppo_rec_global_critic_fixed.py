@@ -341,11 +341,11 @@ class Agent:
     def load(self, PATH):
         fname = PATH+f"/agent_{self.agent_i}"
         if os.path.isfile(fname):
-            self.ppo.load_state_dict(torch.load(), strict=False)
+            self.ppo.load_state_dict(torch.load(fname), strict=False)
             print(f"Load model agent_{self.agent_i} at {fname}")
         else:
             fname = PATH+f"/agent_{0}"
-            self.ppo.load_state_dict(torch.load(), strict=False)
+            self.ppo.load_state_dict(torch.load(fname), strict=False)
             print(f"Load model agent_{0} at {fname}")
 
     # fmt:on
