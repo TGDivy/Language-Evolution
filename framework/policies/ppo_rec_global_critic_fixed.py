@@ -339,8 +339,14 @@ class Agent:
         print(f"Save model agent_{self.agent_i} at {PATH}")
     
     def load(self, PATH):
-        self.ppo.load_state_dict(torch.load(PATH+f"/agent_{0}"), strict=False)
-        print(f"Load model agent_{self.agent_i} at {PATH}")
+        fname = PATH+f"/agent_{self.agent_i}"
+        if os.path.isfile(fname):
+            self.ppo.load_state_dict(torch.load(), strict=False)
+            print(f"Load model agent_{self.agent_i} at {fname}")
+        else:
+            fname = PATH+f"/agent_{0}"
+            self.ppo.load_state_dict(torch.load(), strict=False)
+            print(f"Load model agent_{0} at {fname}")
 
     # fmt:on
     def choose_action_evaluate(self, obs):
