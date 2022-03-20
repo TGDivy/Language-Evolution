@@ -20,7 +20,7 @@
 
 python run.py \
     --model "ppo_shared_global_critic_rec" \
-    --env "full_communication_3" \
+    --env "full_communication_4" \
     --experiment_name "no_save_norm_comm5" \
     --num-envs 512 \
     --total-timesteps 100000 \
