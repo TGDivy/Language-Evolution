@@ -29,7 +29,7 @@ python run.py \
     --max-grad-norm 10 \
     --episode_len 25 \
     --wandb True \
-    --video True
+    --video False
 
 # python run.py \
 #     --model "ppo_shared_global_critic_rec" \
