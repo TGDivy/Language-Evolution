@@ -10,7 +10,7 @@ class Scenario(BaseScenario):
     def make_world(self, N):
         world = World()
         # set any world properties first
-        world.dim_c = 20
+        world.dim_c = 5
         self.N = N
         world.collaborative = True  # whether agents share rewards
         # add agents
@@ -19,7 +19,8 @@ class Scenario(BaseScenario):
             agent.name = f"agent_{i}"
             agent.collide = False
         # add landmarks
-        world.landmarks = [Landmark() for i in range(self.N)]
+        landmarkN = 4
+        world.landmarks = [Landmark() for i in range(landmarkN)]
         for i, landmark in enumerate(world.landmarks):
             landmark.name = "landmark %d" % i
             landmark.collide = False
@@ -73,7 +74,7 @@ class Scenario(BaseScenario):
             agent_reward = np.sqrt(
                 np.sum(np.square(agent.goal_a.state.p_pos - agent.goal_b.state.p_pos))
             )
-        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.05
+        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.01
         agent_reward = -agent_reward - comm_penalty
         return agent_reward
 
@@ -81,56 +82,18 @@ class Scenario(BaseScenario):
         all_rewards = sum(self.reward(agent, world) for agent in world.agents)
         return all_rewards / len(world.agents)
 
-    # def observation(self, agent, world):
-    #     # goal color
-
-    #     # get other agent information
-    #     other_agents = []
-    #     for other in world.agents:
-    #         if other is agent:
-    #             continue
-    #         pos = other.state.p_pos - agent.state.p_pos
-    #         other_agents.append(pos)
-    #         other_agents.append(np.array(other.color[0]))
-    #         other_agents.append(other.state.c)
-
-    #     # get other landmarks information
-    #     other_landmarks = [np.zeros(3) for i in range(5)]
-    #     for i, entity in enumerate(world.landmarks):
-    #         pos = entity.state.p_pos - agent.state.p_pos
-    #         other_landmarks[i][0:2] = pos
-    #         other_landmarks[i][2] = entity.color[0]
-
-    #     # get goal info
-    #     goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
-
-    #     full = np.hstack([agent.state.p_vel] + [goal] + other_landmarks + other_agents)
-
-    #     # print(goal)
-    #     # print(full)
-    #     # print(full.shape)
-    #     # print("-" * 20)
-
-    #     return full
-
     def observation(self, agent, world):
         # goal color
 
         # get other agent information
-        other_agents = [np.zeros(3) for i in range(5)]
-        comms = np.zeros(world.dim_c)
-        k = 0
+        other_agents = []
         for other in world.agents:
             if other is agent:
                 continue
             pos = other.state.p_pos - agent.state.p_pos
-            other_agents[k][0:2] = pos
-            other_agents[k][2] = other.color[0]
-            # other_agents.append(pos)
-            # other_agents.append(np.array(other.color[0]))
-            # other_agents.append(other.state.c)
-            comms += other.state.c
-            k += 1
+            other_agents.append(pos)
+            other_agents.append(np.array(other.color[0]))
+            other_agents.append(other.state.c)
 
         # get other landmarks information
         other_landmarks = [np.zeros(3) for i in range(5)]
@@ -142,9 +105,7 @@ class Scenario(BaseScenario):
         # get goal info
         goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
 
-        full = np.hstack(
-            [agent.state.p_vel] + [goal] + other_landmarks + other_agents + [comms]
-        )
+        full = np.hstack([agent.state.p_vel] + [goal] + other_landmarks + other_agents)
 
         # print(goal)
         # print(full)
@@ -152,6 +113,46 @@ class Scenario(BaseScenario):
         # print("-" * 20)
 
         return full
+
+    # def observation(self, agent, world):
+    #     # goal color
+
+    #     # get other agent information
+    #     other_agents = [np.zeros(3) for i in range(5)]
+    #     comms = np.zeros(world.dim_c)
+    #     k = 0
+    #     for other in world.agents:
+    #         if other is agent:
+    #             continue
+    #         pos = other.state.p_pos - agent.state.p_pos
+    #         other_agents[k][0:2] = pos
+    #         other_agents[k][2] = other.color[0]
+    #         # other_agents.append(pos)
+    #         # other_agents.append(np.array(other.color[0]))
+    #         # other_agents.append(other.state.c)
+    #         comms += other.state.c
+    #         k += 1
+
+    #     # get other landmarks information
+    #     other_landmarks = [np.zeros(3) for i in range(5)]
+    #     for i, entity in enumerate(world.landmarks):
+    #         pos = entity.state.p_pos - agent.state.p_pos
+    #         other_landmarks[i][0:2] = pos
+    #         other_landmarks[i][2] = entity.color[0]
+
+    #     # get goal info
+    #     goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
+
+    #     full = np.hstack(
+    #         [agent.state.p_vel] + [goal] + other_landmarks + other_agents + [comms]
+    #     )
+
+    #     # print(goal)
+    #     # print(full)
+    #     # print(full.shape)
+    #     # print("-" * 20)
+
+    #     return full
 
 
 class raw_env(SimpleEnv):
