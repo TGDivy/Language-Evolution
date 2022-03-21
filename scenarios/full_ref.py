@@ -109,11 +109,6 @@ class Scenario(BaseScenario):
 
         full = np.hstack([agent.state.p_vel] + [goal] + other_landmarks + other_agents)
 
-        # print(goal)
-        # print(full)
-        # print(full.shape)
-        # print("-" * 20)
-
         return full
 
     # def observation(self, agent, world):
