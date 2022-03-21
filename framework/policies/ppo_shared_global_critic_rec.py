@@ -558,7 +558,6 @@ class Agent:
 
         total_pg_loss = 0
         total_v_loss = 0
-        # print("*" * 50)
 
         for epoch in range(args.update_epochs):
             self.ppo.init_hidden(b_obs.shape[1])
@@ -594,7 +593,6 @@ class Agent:
             )
             pg_loss = torch.max(pg_loss1, pg_loss2).mean()
             total_pg_loss += pg_loss
-            # newvalue = newvalue.view(-1)
             if args.clip_vloss:
                 v_loss_unclipped = (newvalue - b_returns) ** 2
                 v_clipped = b_values + torch.clamp(
