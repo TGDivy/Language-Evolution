@@ -85,8 +85,6 @@ class Scenario(BaseScenario):
         return all_rewards / len(world.agents)
 
     def observation(self, agent, world):
-        # goal color
-
         # get other agent information
         other_agents = []
         for other in world.agents:
