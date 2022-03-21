@@ -20,17 +20,17 @@
 
 python run.py \
     --model "ppo_shared_global_critic_rec" \
-    --env "full_communication_4" \
-    --experiment_name "no_save_norm_comm5" \
+    --env "full_communication_3" \
+    --experiment_name "2no_save_norm_comm5" \
     --num-envs 512 \
-    --total-timesteps 150000 \
+    --total-timesteps 6250 \
     --learning-rate 0.0007 \
     --update-epochs 10 \
     --max-grad-norm 10 \
     --episode_len 25 \
     --wandb True \
-    --video False \
-    # --load_weights_name "/ppo_shared_global_critic_rec-full_communication_3-no_save_norm_comm5"
+    --video True \
+    --load_weights_name "/ppo_shared_global_critic_rec-full_communication_3-no_save_norm_comm5"
 
 # python run.py \
 #     --model "ppo_shared_global_critic_rec" \

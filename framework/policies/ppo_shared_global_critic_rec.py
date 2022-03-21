@@ -54,7 +54,6 @@ class ppo_shared_global_critic_rec(base_policy):
     def action(self, observations, new_episode=False, **kwargs):
         with T.no_grad():
             if new_episode:
-                print("-" * 25)
                 self.agent.ppo.init_hidden(observations.shape[0])
             # print(self.agent.ppo.actor_hidden[0][0])
             self.to_remember = []

@@ -21,11 +21,12 @@ class Scenario(BaseScenario):
         # add landmarks
         landmarkN = 4
         world.landmarks = [Landmark() for i in range(landmarkN)]
+        self.lradius = 0.1
         for i, landmark in enumerate(world.landmarks):
             landmark.name = "landmark %d" % i
             landmark.collide = False
             landmark.movable = False
-            landmark.size = 0.1
+            landmark.size = self.lradius
 
         world.colors = [
             np.array([1, 0.5, 0.5]),
@@ -69,13 +70,14 @@ class Scenario(BaseScenario):
 
     def reward(self, agent, world):
         if agent.goal_a is None or agent.goal_b is None:
-            agent_reward = 0.0
+            d_reward = 0.0
         else:
-            agent_reward = np.sqrt(
-                np.sum(np.square(agent.goal_a.state.p_pos - agent.goal_b.state.p_pos))
-            )
-        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.01
-        agent_reward = -agent_reward - comm_penalty
+            diff = agent.goal_a.state.p_pos - agent.goal_b.state.p_pos
+            distance = np.linalg.norm(diff)
+            d_reward = distance if distance >= self.lradius else 0
+
+        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.02
+        agent_reward = -d_reward - comm_penalty
         return agent_reward
 
     def global_reward(self, world):
