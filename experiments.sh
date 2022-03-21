@@ -21,9 +21,9 @@
 python run.py \
     --model "ppo_shared_global_critic_rec" \
     --env "full_communication_3" \
-    --experiment_name "2no_save_norm_comm5" \
+    --experiment_name "3no_save_norm_comm5" \
     --num-envs 512 \
-    --total-timesteps 6250 \
+    --total-timesteps 12500 \
     --learning-rate 0.0007 \
     --update-epochs 10 \
     --max-grad-norm 10 \

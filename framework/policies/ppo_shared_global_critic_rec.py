@@ -562,6 +562,7 @@ class Agent:
 
         for epoch in range(args.update_epochs):
             self.ppo.init_hidden(b_obs.shape[1])
+            self.optimizer.zero_grad()
 
             (_, newlogprob, entropy, newvalue) = self.ppo.get_action_and_value(
                 b_obs, b_val_obs, b_actions.long()
@@ -575,9 +576,9 @@ class Agent:
                 # calculate approx_kl http://joschu.net/blog/kl-approx.html
                 # old_approx_kl = (-logratio).mean()
                 approx_kl = ((ratio - 1) - logratio).mean()
-                if approx_kl > 0.01:
-                    print("too large kl", epoch)
-                    continue
+                # if approx_kl > 0.02:
+                #     print("too large kl", epoch)
+                #     break
                 clipfracs += [
                     ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
                 ]
@@ -611,7 +612,6 @@ class Agent:
             entropy_loss = entropy.mean()
             loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
-            self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.ppo.parameters(), args.max_grad_norm)
             self.optimizer.step()

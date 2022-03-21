@@ -76,7 +76,7 @@ class Scenario(BaseScenario):
             distance = np.linalg.norm(diff)
             d_reward = distance if distance >= self.lradius else 0
 
-        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.02
+        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.01
         agent_reward = -d_reward - comm_penalty
         return agent_reward
 
