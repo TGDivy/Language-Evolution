@@ -29,7 +29,7 @@ python run.py \
     --max-grad-norm 10 \
     --episode_len 25 \
     --wandb True \
-    --video True
+    --video False
 
 python run.py \
     --model "ppo_shared_global_critic_rec" \
@@ -42,7 +42,7 @@ python run.py \
     --max-grad-norm 10 \
     --episode_len 25 \
     --wandb True \
-    --video True
+    --video False
     # --load_weights_name "/ppo_shared_global_critic_rec-full_communication_2-sum_com"
 
 # python run.py \
