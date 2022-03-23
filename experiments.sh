@@ -32,7 +32,7 @@
 #     --video False
 
 python run.py \
-    --model "ppo_shared_use_future" \
+    --model "ppo_shared_future" \
     --env "full_communication_3" \
     --experiment_name "report_env" \
     --num-envs 512 \
