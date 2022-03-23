@@ -1,6 +1,7 @@
 from matplotlib.collections import PolyCollection
 from framework.experiment_builder import ExperimentBuilder
 from framework.utils.arg_extractor import get_args
+from framework.policy import policies_dic
 import numpy as np
 import random
 import torch
@@ -15,24 +16,7 @@ from scenarios import complex_ref, full_ref
 import wandb
 import shutil
 import supersuit as ss
-from framework.policies.ppo import ppo_policy
-from framework.policies.ppo3 import ppo_policy3
-from framework.policies.maddpg import maddpg_policy
-from framework.policies.ppo_rec import ppo_rec_policy
-from framework.policies.ppo3_shared import ppo_policy3_shared
-from framework.policies.ppo_rnn_shared import ppo_rnn_policy_shared
-from framework.policies.ppo_shared_critic import ppo_shared_critic
-from framework.policies.ppo_shared_global_critic import ppo_shared_global_critic
-from framework.policies.ppo_shared_global_critic_rec import ppo_shared_global_critic_rec
-from framework.policies.ppo_shared_global_critic_rec_larg import (
-    ppo_shared_global_critic_rec_large,
-)
-from framework.policies.ppo_rec_global_critic import ppo_rec_global_critic
-from framework.policies.ppo_no_scaling_rec_global_critic import (
-    ppo_no_scaling_rec_global_critic,
-)
-from framework.policies.ppo_attend_agent import ppo_attend_agent
-from framework.policies.ppo_rec_global_critic_fixed import ppo_rec_global_critic_fixed
+
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
@@ -129,46 +113,10 @@ def main():
 
     args.obs_space = env.observation_space.shape
     args.device = "cuda"
-    ##############################################################
 
     ############### MODEL ########################################
-    if args.model == "ppo":
-        Policy = ppo_policy
-    elif args.model == "ppo-rec":
-        Policy = ppo_rec_policy
-    elif args.model == "maddpg":
-        Policy = maddpg_policy
-    elif args.model == "ppo_policy3":
-        Policy = ppo_policy3
-    elif args.model == "ppo_policy3_shared":
-        Policy = ppo_policy3_shared
-    elif args.model == "ppo_rnn_policy_shared":
-        Policy = ppo_rnn_policy_shared
-        args.hidden_size = 64
-    elif args.model == "ppo_shared_critic":
-        Policy = ppo_shared_critic
-        args.hidden_size = 64
-    elif args.model == "ppo_shared_global_critic":
-        Policy = ppo_shared_global_critic
-        args.hidden_size = 64
-    elif args.model == "ppo_shared_global_critic_rec":
-        Policy = ppo_shared_global_critic_rec
-        args.hidden_size = 64
-    elif args.model == "ppo_shared_global_critic_rec_large":
-        Policy = ppo_shared_global_critic_rec_large
-        args.hidden_size = 128
-    elif args.model == "ppo_rec_global_critic":
-        Policy = ppo_rec_global_critic
-        args.hidden_size = 64
-    elif args.model == "ppo_no_scaling_rec_global_critic":
-        Policy = ppo_no_scaling_rec_global_critic
-        args.hidden_size = 64
-    elif args.model == "ppo_attend_agent":
-        Policy = ppo_attend_agent
-        args.hidden_size = 64
-    elif args.model == "ppo_rec_global_critic_fixed":
-        Policy = ppo_rec_global_critic_fixed
-        args.hidden_size = 64
+    Policy = policies_dic[args.model]
+    args.hidden_size = 64
 
     Policy = Policy(args, logger)
     if args.load_weights_name:
