@@ -570,7 +570,7 @@ class Agent:
 
         total_pg_loss = 0
         total_v_loss = 0
-        mseloss = torch.nn.MSELoss(reduction="sum")
+        mseloss = torch.nn.MSELoss()
 
         for epoch in range(args.update_epochs):
             self.ppo.init_hidden(b_obs.shape[1])
