@@ -434,7 +434,15 @@ class NNN(nn.Module):
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
-            layer_init(nn.Linear(layer_filters, action_space), std=0.01),
+        )
+        self.action = layer_init(nn.Linear(layer_filters, action_space), std=0.01)
+
+        self.future = nn.Sequential(
+            layer_init(nn.Linear(layer_filters, layer_filters)),
+            act_fn(),
+            layer_init(nn.Linear(layer_filters, layer_filters)),
+            act_fn(),
+            layer_init(nn.Linear(layer_filters, inp_hid_size), std=0.01),
         )
 
     def init_hidden(self, batch_size=1):
@@ -452,24 +460,22 @@ class NNN(nn.Module):
 
     def get_action(self, x):
         out, self.actor_hidden = self.gru_actor(x, self.actor_hidden)
-        logits = self.actor(out)
+        out = self.actor(out)
+        logits = self.action(out)
         probs = Categorical(logits=logits)
         action = probs.sample()
-        # print(x.shape, out.shape)
-        # print(logits.shape, probs)
-        # print(action.shape)
 
-        return action, probs
+        return action, probs, self.future(out)
 
     def get_action_and_value(self, x, val_x, action_=None):
-        action, probs = self.get_action(x)
+        action, probs, future = self.get_action(x)
         value = self.get_value(val_x)
 
         prob = (
             probs.log_prob(action_) if action_ is not None else probs.log_prob(action)
         )
 
-        return (action, prob, probs.entropy(), value)
+        return (action, prob, probs.entropy(), value, future)
 
 
 class Agent:
@@ -519,7 +525,7 @@ class Agent:
         with torch.no_grad():
             obs_space = np.array(self.args.obs_space).prod()
             obs = obs.reshape(1, -1, obs_space)
-            action, _ = self.ppo.get_action(obs)
+            action, _, _ = self.ppo.get_action(obs)
             return action.cpu()
 
     def choose_action(self, observations, val_obs):
@@ -533,6 +539,7 @@ class Agent:
                 probs,
                 _,
                 value,
+                _,
             ) = self.ppo.get_action_and_value(observations, val_obs)
 
             return (
@@ -558,18 +565,22 @@ class Agent:
 
         total_pg_loss = 0
         total_v_loss = 0
+        mseloss = torch.nn.MSELoss()
 
         for epoch in range(args.update_epochs):
             self.ppo.init_hidden(b_obs.shape[1])
             self.optimizer.zero_grad()
 
-            (_, newlogprob, entropy, newvalue) = self.ppo.get_action_and_value(
+            (_, newlogprob, entropy, newvalue, future) = self.ppo.get_action_and_value(
                 b_obs, b_val_obs, b_actions.long()
             )
             newvalue = newvalue.squeeze()
 
             logratio = newlogprob - b_logprobs
             ratio = logratio.exp()
+
+            # if True: #Future Loss
+            floss = mseloss(b_obs[1:], future[:-1])
 
             with torch.no_grad():
                 # calculate approx_kl http://joschu.net/blog/kl-approx.html
@@ -608,7 +619,9 @@ class Agent:
             total_v_loss += v_loss
 
             entropy_loss = entropy.mean()
-            loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+            loss = (
+                pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + floss
+            )
 
             loss.backward()
             nn.utils.clip_grad_norm_(self.ppo.parameters(), args.max_grad_norm)
@@ -633,5 +646,6 @@ class Agent:
         self.writer.add_scalar(f"losses/approx_kl", approx_kl.item(), global_step)
         self.writer.add_scalar(f"losses/clipfrac", np.mean(clipfracs), global_step)
         self.writer.add_scalar(f"losses/explained_variance", explained_var, global_step)
+        self.writer.add_scalar(f"losses/Floss", floss, global_step)
 
         self.memory.clear_memory()
