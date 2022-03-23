@@ -17,6 +17,7 @@ from framework.policies.ppo_no_scaling_rec_global_critic import (
 from framework.policies.ppo_attend_agent import ppo_attend_agent
 from framework.policies.ppo_rec_global_critic_fixed import ppo_rec_global_critic_fixed
 from framework.policies.ppo_shared_future import ppo_shared_future
+from framework.policies.ppo_shared_use_future import ppo_shared_use_future
 
 
 policies_dic = {
@@ -24,4 +25,5 @@ policies_dic = {
     "ppo_policy3": ppo_policy3,
     "maddpg_policy": maddpg_policy,
     "ppo_shared_future": ppo_shared_future,
+    "ppo_shared_use_future": ppo_shared_use_future,
 }
