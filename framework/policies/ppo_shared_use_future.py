@@ -98,7 +98,7 @@ class ppo_shared_use_future(base_policy):
         if (self.agent.memory.counter) == self.args.episode_len:
             self.agent.memory.counter = 0
             self.agent.memory.cn += 1
-        if self.agent.memory.cn == self.args.bs:
+        if self.agent.memory.cn == self.args.learn_n:
             self.agent.learn(total_steps)
 
 
@@ -106,7 +106,7 @@ class ppo_shared_use_future(base_policy):
 class PPOTrainer:
     def __init__(self, args, num_steps, num_envs, obs_space, gamma, gae_lambda):
         self.args = args
-        self.num_steps = num_steps
+        self.num_steps = args.episode_len
         self.num_envs = num_envs
         self.batch_size = args.batch_size
         self.obs_space = obs_space
@@ -173,7 +173,7 @@ class PPOTrainer:
         self.advantages = advantages
 
     def clear_memory(self):
-        space = (self.num_steps, self.num_envs * self.args.n_agents * self.args.bs)
+        space = (self.num_steps, self.num_envs * self.args.n_agents * self.args.learn_n)
 
         self.obs = T.zeros(space + self.obs_space)
         self.valobs = T.zeros(space + (self.obs_space[0]*self.args.n_agents,))
@@ -415,7 +415,7 @@ class NNN(nn.Module):
 
         act_fn = nn.ReLU
 
-        layer_filters = 128
+        layer_filters = 256
 
         self.gru_critic = nn.GRU(
             inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
@@ -426,21 +426,29 @@ class NNN(nn.Module):
 
         self.critic = nn.Sequential(
             layer_init(nn.Linear(hidden_size, layer_filters)),
+            nn.Dropout(0.5),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
+            nn.Dropout(0.4),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
+            nn.Dropout(0.3),
             act_fn(),
             layer_init(nn.Linear(layer_filters, 1), std=1.0),
         )
+
         self.actor = nn.Sequential(
             layer_init(nn.Linear(hidden_size, layer_filters)),
+            nn.Dropout(0.5),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
+            nn.Dropout(0.4),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
+            nn.Dropout(0.3),
             act_fn(),
         )
+
         self.action = nn.Sequential(
             layer_init(nn.Linear(layer_filters + inp_hid_size, layer_filters)),
             layer_init(nn.Linear(layer_filters, action_space), std=0.01),
@@ -503,7 +511,7 @@ class Agent:
         print(self.ppo)
         self.memory = PPOTrainer(
             args,
-            args.num_steps,
+            args.episode_len,
             args.num_envs,
             args.obs_space,
             args.gamma,

@@ -17,6 +17,7 @@ import wandb
 import shutil
 import supersuit as ss
 
+import psutil
 import os
 from torch.utils.tensorboard import SummaryWriter
 import warnings
@@ -101,7 +102,7 @@ def main():
     env = ss.pad_observations_v0(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
     single_env = ss.concat_vec_envs_v1(env, 1)
-    parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, min(10, args.num_envs))
+    parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, psutil.cpu_count() - 1)
     parrallel_env.seed(args.seed)
     obs = parrallel_env.reset()
     args.action_space = parrallel_env.action_space.n
@@ -115,7 +116,6 @@ def main():
 
     ############### MODEL ########################################
     Policy = policies_dic[args.model]
-    args.hidden_size = 64
 
     Policy = Policy(args, logger)
     if args.load_weights_name:

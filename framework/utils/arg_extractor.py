@@ -39,6 +39,9 @@ def get_args():
     parser.add_argument("--env",type=str,default="simple",help="environment for agent",)
 
 
+    parser.add_argument("--gru_hidden_size",type=int,default=64, help="Hidden size for rnn")
+    parser.add_argument("--gru_layers",type=int,default=1, help="Hidden layers for rnn")
+    
     parser.add_argument("--gae",type=lambda x: bool(strtobool(x)),default=True,nargs="?",const=True,help="Use GAE for advantage computation",)
     parser.add_argument("--gamma", type=float, default=0.99, help="the discount factor gamma")
     parser.add_argument("--gae-lambda",type=float,default=0.95,help="the lambda for the general advantage estimation",)
@@ -57,14 +60,16 @@ def get_args():
     args = parser.parse_args()
     # fmt: on
     num_cpus = psutil.cpu_count()
-    optimum_process_count_per_thread = 64
+    optimum_process_count_per_thread = 96
     n = re.findall(r"\d+", args.env)
     args.n_agents = int(n[0]) if n else 1
     args.num_envs = ((num_cpus - 2) * optimum_process_count_per_thread) // args.n_agents
     learn_n = args.batch_size // args.num_envs
     args.learn_n = learn_n if learn_n >= 1 else 1
 
-    k = args.episode_len * 50 * 5  # episode length, n validation, 5 recording.
-    args.num_steps = ((args.episode_len * args.total_episodes) // k) * k
+    k = args.episode_len  # episode length, n validation, 5 recording.
+    total_timesteps = args.episode_len * args.total_episodes // args.num_envs
+    rounded_t = (1 if (total_timesteps // k) <= 0 else (total_timesteps // k)) * k
+    args.total_timesteps = rounded_t
 
     return args

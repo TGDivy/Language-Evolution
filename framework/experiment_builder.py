@@ -14,6 +14,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 import io
 import seaborn as sns
+import math
 
 
 class ExperimentBuilder(nn.Module):
@@ -171,12 +172,18 @@ class ExperimentBuilder(nn.Module):
 
     def run_experiment(self):
 
-        total_steps = 0
         observation = self.train_env.reset()
         rewards, dones = 0, False
 
+        score = (
+            math.ceil((self.steps / 30) / self.args.episode_len) * self.args.episode_len
+        )
+        vid = (
+            math.ceil((self.steps / 5) / self.args.episode_len) * self.args.episode_len
+        )
+
         for step in tqdm(range(0, self.steps + 1), position=1):
-            if (step) % (self.steps // 50) == 0:
+            if (step) % (score) == 0:
                 self.score(step)
 
             new_episode = (step % self.args.episode_len) == 0
@@ -184,11 +191,9 @@ class ExperimentBuilder(nn.Module):
 
             observation, rewards, dones, infos = self.train_env.step(actions)
 
-            self.Policy.store(total_steps, observation, rewards, dones)
+            self.Policy.store(step, observation, rewards, dones)
 
-            total_steps += 1
-
-            if self.args.video and (step + 1) % (self.steps // 5) == 0:
+            if self.args.video and (step + 1) % vid == 0:
                 self.save_video(step)
         if self.args.video:
             self.save_video(1e6, N=10)
