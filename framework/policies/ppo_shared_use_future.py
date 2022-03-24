@@ -428,13 +428,10 @@ class NNN(nn.Module):
 
         self.critic = nn.Sequential(
             layer_init(nn.Linear(hidden_size, layer_filters)),
-            nn.Dropout(0.5),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
-            nn.Dropout(0.4),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
-            nn.Dropout(0.3),
             act_fn(),
             layer_init(nn.Linear(layer_filters, 1), std=1.0),
         )
