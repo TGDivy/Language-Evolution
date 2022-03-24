@@ -27,7 +27,6 @@ import sys
 
 def main():
     args = get_args()  # get arguments from command line
-
     # Generate Directories##########################
     experiment_name = f"{args.model}-{args.env}-{args.experiment_name}"
     experiment_folder = os.path.join(os.path.abspath("experiments"), experiment_name)
@@ -102,7 +101,7 @@ def main():
     env = ss.pad_observations_v0(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
     single_env = ss.concat_vec_envs_v1(env, 1)
-    parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, min(8, args.num_envs))
+    parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, min(10, args.num_envs))
     parrallel_env.seed(args.seed)
     obs = parrallel_env.reset()
     args.action_space = parrallel_env.action_space.n

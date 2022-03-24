@@ -96,6 +96,9 @@ class ppo_shared_future(base_policy):
         )
 
         if (self.agent.memory.counter) == self.args.episode_len:
+            self.agent.memory.counter = 0
+            self.agent.memory.cn += 1
+        if self.agent.memory.cn == self.args.learn_n:
             self.agent.learn(total_steps)
 
 
@@ -125,14 +128,16 @@ class PPOTrainer:
 
     def store_memory(self, observations, val_observations, logprobs,action,vals,reward,done):
         c = self.counter
-        self.obs[c] = observations
-        self.valobs[c] = val_observations
+        start = self.cn * self.num_envs * self.args.n_agents
+        end = (self.cn+1) * self.num_envs * self.args.n_agents
+        self.obs[c,start:end] = observations
+        self.valobs[c,start:end] = val_observations
 
-        self.logprobs[c] = logprobs
-        self.actions[c] = action
-        self.values[c] = vals
-        self.rewards[c] = reward
-        self.dones[c] = done
+        self.logprobs[c,start:end] = logprobs
+        self.actions[c,start:end] = action
+        self.values[c,start:end] = vals
+        self.rewards[c,start:end] = reward
+        self.dones[c,start:end] = done
 
         self.counter += 1
 
@@ -168,7 +173,7 @@ class PPOTrainer:
         self.advantages = advantages
 
     def clear_memory(self):
-        space = (self.num_steps, self.num_envs * self.args.n_agents)
+        space = (self.num_steps, self.num_envs * self.args.n_agents * self.args.learn_n)
 
         self.obs = T.zeros(space + self.obs_space)
         self.valobs = T.zeros(space + (self.obs_space[0]*self.args.n_agents,))
@@ -178,6 +183,7 @@ class PPOTrainer:
         self.rewards = T.zeros(space)
         self.dones = T.zeros(space)
         self.counter = 0
+        self.cn = 0
 # fmt:on
 
 
@@ -580,7 +586,7 @@ class Agent:
             ratio = logratio.exp()
 
             # if True: #Future Loss
-            floss = mseloss(b_obs[1:], future[:-1])
+            # floss = mseloss(b_obs[1:], future[:-1])
 
             with torch.no_grad():
                 # calculate approx_kl http://joschu.net/blog/kl-approx.html
@@ -620,7 +626,9 @@ class Agent:
 
             entropy_loss = entropy.mean()
             loss = (
-                pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + floss
+                pg_loss
+                - args.ent_coef * entropy_loss
+                + v_loss * args.vf_coef  # + floss
             )
 
             loss.backward()
@@ -646,6 +654,6 @@ class Agent:
         self.writer.add_scalar(f"losses/approx_kl", approx_kl.item(), global_step)
         self.writer.add_scalar(f"losses/clipfrac", np.mean(clipfracs), global_step)
         self.writer.add_scalar(f"losses/explained_variance", explained_var, global_step)
-        self.writer.add_scalar(f"losses/Floss", floss, global_step)
+        # self.writer.add_scalar(f"losses/Floss", floss, global_step)
 
         self.memory.clear_memory()

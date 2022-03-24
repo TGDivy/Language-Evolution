@@ -96,6 +96,9 @@ class ppo_shared_use_future(base_policy):
         )
 
         if (self.agent.memory.counter) == self.args.episode_len:
+            self.agent.memory.counter = 0
+            self.agent.memory.cn += 1
+        if self.agent.memory.cn == self.args.bs:
             self.agent.learn(total_steps)
 
 
@@ -125,14 +128,16 @@ class PPOTrainer:
 
     def store_memory(self, observations, val_observations, logprobs,action,vals,reward,done):
         c = self.counter
-        self.obs[c] = observations
-        self.valobs[c] = val_observations
+        start = self.cn * self.num_envs * self.args.n_agents
+        end = (self.cn+1) * self.num_envs * self.args.n_agents
+        self.obs[c,start:end] = observations
+        self.valobs[c,start:end] = val_observations
 
-        self.logprobs[c] = logprobs
-        self.actions[c] = action
-        self.values[c] = vals
-        self.rewards[c] = reward
-        self.dones[c] = done
+        self.logprobs[c,start:end] = logprobs
+        self.actions[c,start:end] = action
+        self.values[c,start:end] = vals
+        self.rewards[c,start:end] = reward
+        self.dones[c,start:end] = done
 
         self.counter += 1
 
@@ -168,7 +173,7 @@ class PPOTrainer:
         self.advantages = advantages
 
     def clear_memory(self):
-        space = (self.num_steps, self.num_envs * self.args.n_agents)
+        space = (self.num_steps, self.num_envs * self.args.n_agents * self.args.bs)
 
         self.obs = T.zeros(space + self.obs_space)
         self.valobs = T.zeros(space + (self.obs_space[0]*self.args.n_agents,))
@@ -178,6 +183,7 @@ class PPOTrainer:
         self.rewards = T.zeros(space)
         self.dones = T.zeros(space)
         self.counter = 0
+        self.cn = 0
 # fmt:on
 
 

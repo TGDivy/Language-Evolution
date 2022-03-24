@@ -10,7 +10,7 @@ class Scenario(BaseScenario):
     def make_world(self, N):
         world = World()
         # set any world properties first
-        world.dim_c = 5
+        world.dim_c = 10
         self.N = N
         world.collaborative = True  # whether agents share rewards
         # add agents
@@ -21,7 +21,7 @@ class Scenario(BaseScenario):
         # add landmarks
         landmarkN = 4
         world.landmarks = [Landmark() for i in range(landmarkN)]
-        self.lradius = 0.1
+        self.lradius = 0.15
         for i, landmark in enumerate(world.landmarks):
             landmark.name = "landmark %d" % i
             landmark.collide = False
@@ -76,7 +76,7 @@ class Scenario(BaseScenario):
             distance = np.linalg.norm(diff)
             d_reward = distance if distance >= self.lradius else 0
 
-        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.01
+        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.03
         agent_reward = -d_reward - comm_penalty
         return agent_reward
 

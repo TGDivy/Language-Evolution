@@ -32,17 +32,17 @@
 #     --video False
 
 python run.py \
-    --model "ppo_shared_future" \
-    --env "full_communication_3" \
-    --experiment_name "report_env" \
-    --num-envs 512 \
-    --total-timesteps 75000 \
+    --model "ppo_shared_use_future" \
+    --env "full_communication_2" \
+    --experiment_name "test_epcount" \
+    --total-episodes 2000 \
     --learning-rate 0.0007 \
+    --batch_size 512 \
     --update-epochs 10 \
     --max-grad-norm 10 \
     --episode_len 25 \
-    --wandb True \
-    --video False
+    --wandb False \
+    --video True
     # --load_weights_name "/ppo_shared_global_critic_rec-full_communication_2-sum_com"
 
 # python run.py \
