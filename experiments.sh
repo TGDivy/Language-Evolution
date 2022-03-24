@@ -37,7 +37,7 @@ python run.py \
     --experiment_name "big_net" \
     --total-episodes 750000 \
     --learning-rate 0.0007 \
-    --batch_size 512 \
+    --batch_size 256 \
     --update-epochs 10 \
     --max-grad-norm 10 \
     --episode_len 25 \
