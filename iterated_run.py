@@ -1,16 +1,12 @@
 from matplotlib.collections import PolyCollection
 from framework.experiment_builder import ExperimentBuilder
 from framework.utils.arg_extractor import get_args
-from framework.policy import policies_dic
+from iterated_learning.ppo_shared_use_future import language_learner_agents
 import numpy as np
 import random
 import torch
-from pettingzoo.mpe import (
-    simple_v2,
-    simple_reference_v2,
-    simple_spread_v2,
-)
-from scenarios import complex_ref, full_ref
+
+from scenarios import complex_ref, full_ref, iterated
 
 # from torch.profiler import profile, record_function, ProfilerActivity
 import wandb
@@ -78,24 +74,8 @@ def main():
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     # setup environment ###########################################
+    env = full_ref
     N = 2
-    if args.env == "simple":
-        env = simple_v2
-    elif args.env == "communication":
-        env = simple_reference_v2
-    elif args.env == "complex_communication":
-        env = complex_ref
-    elif args.env == "full_communication_2":
-        env = full_ref
-        N = 2
-    elif args.env == "full_communication_3":
-        env = full_ref
-        N = 3
-    elif args.env == "full_communication_4":
-        N = 4
-        env = full_ref
-    elif args.env == "spread":
-        env = simple_spread_v2
 
     env = env.parallel_env(N=N)
     args.n_agents = env.max_num_agents
@@ -115,7 +95,7 @@ def main():
     args.device = "cuda"
 
     ############### MODEL ########################################
-    Policy = policies_dic[args.model]
+    Policy = language_learner_agents
 
     Policy = Policy(args, logger)
     if args.load_weights_name:
