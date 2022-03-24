@@ -616,7 +616,7 @@ class Agent:
             futures = self.ppo.get_futures(b_obs, n)
             floss = 0
             for i in range(n):
-                floss += mseloss(b_obs[i + 1 :], futures[i][: -(i - 1)])
+                floss += mseloss(b_obs[i + 1 :], futures[i][: -i - 1])
 
             with torch.no_grad():
                 # calculate approx_kl http://joschu.net/blog/kl-approx.html
