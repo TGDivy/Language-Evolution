@@ -33,11 +33,11 @@
 
 python run.py \
     --model "ppo_shared_use_future" \
-    --env "full_communication_2" \
+    --env "full_communication_4" \
     --experiment_name "big_net" \
-    --total-episodes 750000 \
+    --total-episodes 1000000 \
     --learning-rate 0.0007 \
-    --batch_size 256 \
+    --batch_size 1024 \
     --update-epochs 10 \
     --max-grad-norm 10 \
     --episode_len 25 \
