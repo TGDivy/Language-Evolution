@@ -43,7 +43,7 @@ python run.py \
     --episode_len 25 \
     --hidden_size 128 \
     --wandb True \
-    --video True
+    --video False
     # --load_weights_name "/ppo_shared_global_critic_rec-full_communication_2-sum_com"
 
 # python run.py \
