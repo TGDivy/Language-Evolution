@@ -470,6 +470,17 @@ class NNN(nn.Module):
             "cuda"
         )
 
+    def get_futures(self, x, n):
+        out = x
+        futures = []
+        for i in range(n):
+            out, self.actor_hidden = self.gru_actor(out, self.actor_hidden)
+            out = self.actor(out)
+            out = self.future(out)
+            futures.append(out)
+
+        return futures
+
     def get_value(self, val_x):
         out, self.critic_hidden = self.gru_critic(val_x, self.critic_hidden)
         value = self.critic(out)
@@ -601,7 +612,11 @@ class Agent:
             ratio = logratio.exp()
 
             # if True: #Future Loss
-            floss = mseloss(b_obs[1:], future[:-1])
+            n = 3
+            futures = self.ppo.get_futures(b_obs, n)
+            floss = 0
+            for i in range(n):
+                floss += mseloss(b_obs[i + 1 :], futures[i][: -(i - 1)])
 
             with torch.no_grad():
                 # calculate approx_kl http://joschu.net/blog/kl-approx.html
