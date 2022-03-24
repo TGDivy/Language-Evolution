@@ -44,7 +44,7 @@ python run.py \
     --hidden_size 128 \
     --wandb True \
     --video False \
-    # --load_weights_name "/ppo_shared_use_future-full_communication_4-big_net_cont"
+    --load_weights_name "/ppo_shared_use_future-full_communication_4-big_net_cont"
 
 # python run.py \
 #     --model "ppo_shared_global_critic_rec" \
