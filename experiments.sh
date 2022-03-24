@@ -57,7 +57,7 @@ python iterated_run.py \
     --max-grad-norm 10 \
     --episode_len 25 \
     --hidden_size 128 \
-    --wandb False \
+    --wandb True \
     --video False
 
 # python run.py \
