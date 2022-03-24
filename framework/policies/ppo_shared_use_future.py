@@ -54,6 +54,7 @@ class ppo_shared_use_future(base_policy):
     def action(self, observations, new_episode=False, **kwargs):
         with T.no_grad():
             if new_episode:
+                self.agent.ppo.eval()
                 self.agent.ppo.init_hidden(observations.shape[0])
             # print(self.agent.ppo.actor_hidden[0][0])
             self.to_remember = []
@@ -74,6 +75,7 @@ class ppo_shared_use_future(base_policy):
     def action_evaluate(self, observations, new_episode):
         obs_batch = T.tensor(observations, dtype=T.float, device="cuda")
         if new_episode:
+            self.agent.ppo.eval()
             self.agent.ppo.init_hidden(observations.shape[0])
         actions = self.agent.choose_action_evaluate(obs_batch)
         # actions = actions.squeeze()
@@ -568,6 +570,8 @@ class Agent:
             )
 
     def learn(self, global_step):
+        self.ppo.train()
+
         args = self.args
         self.memory.calculate_returns()
         clipfracs = []
