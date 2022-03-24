@@ -34,15 +34,15 @@
 python run.py \
     --model "ppo_shared_use_future" \
     --env "full_communication_2" \
-    --experiment_name "test_epcount" \
-    --total-episodes 500000 \
+    --experiment_name "big_net" \
+    --total-episodes 750000 \
     --learning-rate 0.0007 \
     --batch_size 512 \
     --update-epochs 10 \
     --max-grad-norm 10 \
     --episode_len 25 \
-    --gru_hidden_size 128 \
-    --wandb False \
+    --hidden_size 128 \
+    --wandb True \
     --video True
     # --load_weights_name "/ppo_shared_global_critic_rec-full_communication_2-sum_com"
 

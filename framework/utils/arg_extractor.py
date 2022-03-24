@@ -39,7 +39,7 @@ def get_args():
     parser.add_argument("--env",type=str,default="simple",help="environment for agent",)
 
 
-    parser.add_argument("--gru_hidden_size",type=int,default=64, help="Hidden size for rnn")
+    parser.add_argument("--hidden_size",type=int,default=64, help="Hidden size for rnn")
     parser.add_argument("--gru_layers",type=int,default=1, help="Hidden layers for rnn")
     
     parser.add_argument("--gae",type=lambda x: bool(strtobool(x)),default=True,nargs="?",const=True,help="Use GAE for advantage computation",)
