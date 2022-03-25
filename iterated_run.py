@@ -22,76 +22,36 @@ warnings.filterwarnings("ignore")
 import sys
 
 
-def main():
-    args = get_args()  # get arguments from command line
-    # Generate Directories##########################
-    experiment_name = f"{args.model}-{args.env}-{args.experiment_name}"
-    experiment_folder = os.path.join(os.path.abspath("experiments"), experiment_name)
-    experiment_logs = os.path.abspath(os.path.join(experiment_folder, "result_outputs"))
-    experiment_videos = os.path.abspath(os.path.join(experiment_folder, "videos"))
-    experiment_saved_models = os.path.abspath(
-        os.path.join(experiment_folder, "saved_models")
-    )
-
-    if os.path.exists(experiment_folder):
-        shutil.rmtree(experiment_folder)
-
-    os.mkdir(experiment_folder)  # create the experiment directory
-    os.mkdir(experiment_logs)  # create the experiment log directory
-    os.mkdir(experiment_saved_models)
-    os.mkdir(experiment_videos)
-    ################################################
-    if args.wandb:
-        wandb.init(
-            project="language_evolution",
-            entity=None,
-            sync_tensorboard=True,
-            config=vars(args),
-            name=experiment_name,
-            monitor_gym=True,
-            save_code=True,
-            dir=os.path.abspath("experiments"),
-        )
-    logger = SummaryWriter(experiment_logs)
-
-    print("\n*****Parameters*****")
-    space = " "
-    print(
-        "\n".join(
-            [
-                f"--- {param}: {(20-len(param))*space} {value}"
-                for param, value in vars(args).items()
-            ]
-        )
-    )
-    print("*******************")
-
-    # logger.add_hparams(vars(args), {"rewards/end_reward": 0})
-
-    # set seeds
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.backends.cudnn.deterministic = args.torch_deterministic
-    # setup environment ###########################################
-    env = full_ref
-    N = 2
-
-    env = env.parallel_env(N=N)
-    args.n_agents = env.max_num_agents
+def get_environments(args):
+    landmark_ind = [i for i in range(12)]
+    env = iterated
+    env = env.parallel_env(landmark_ind=landmark_ind)
     env = ss.pad_observations_v0(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
+
     single_env = ss.concat_vec_envs_v1(env, 1)
+
     parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, psutil.cpu_count() - 1)
     parrallel_env.seed(args.seed)
+
     obs = parrallel_env.reset()
     args.action_space = parrallel_env.action_space.n
+    args.obs_space = env.observation_space.shape
+    args.n_agents = 2
+
     print(
         f"Observation shape: {env.observation_space.shape}, Action space: {parrallel_env.action_space}, all_obs shape: {obs.shape}"
     )
-    env.close()
 
-    args.obs_space = env.observation_space.shape
+    return single_env, parrallel_env, args
+
+
+def iterated_learning(
+    args, logger, experiment_name, experiment_videos, experiment_saved_models
+):
+    # setup environment ###########################################
+    single_env, parrallel_env, args = get_environments(args)
+
     args.device = "cuda"
 
     ############### MODEL ########################################
@@ -128,6 +88,60 @@ def main():
     logger.close()
 
     os._exit(0)
+
+
+def main():
+    args = get_args()  # get arguments from command line
+    # Generate Directories##########################
+    experiment_name = f"{args.model}-{args.env}-{args.experiment_name}"
+    experiment_folder = os.path.join(os.path.abspath("experiments"), experiment_name)
+    experiment_logs = os.path.abspath(os.path.join(experiment_folder, "result_outputs"))
+    experiment_videos = os.path.abspath(os.path.join(experiment_folder, "videos"))
+    experiment_saved_models = os.path.abspath(
+        os.path.join(experiment_folder, "saved_models")
+    )
+
+    if os.path.exists(experiment_folder):
+        shutil.rmtree(experiment_folder)
+
+    os.mkdir(experiment_folder)  # create the experiment directory
+    os.mkdir(experiment_logs)  # create the experiment log directory
+    os.mkdir(experiment_saved_models)
+    os.mkdir(experiment_videos)
+    ################################################
+    if args.wandb:
+        wandb.init(
+            project="iterated_language_evolution",
+            entity=None,
+            sync_tensorboard=True,
+            config=vars(args),
+            name=experiment_name,
+            monitor_gym=True,
+            save_code=True,
+            dir=os.path.abspath("experiments"),
+        )
+    logger = SummaryWriter(experiment_logs)
+
+    print("\n*****Parameters*****")
+    space = " "
+    print(
+        "\n".join(
+            [
+                f"--- {param}: {(20-len(param))*space} {value}"
+                for param, value in vars(args).items()
+            ]
+        )
+    )
+    print("*******************")
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = args.torch_deterministic
+
+    iterated_learning(
+        args, logger, experiment_name, experiment_videos, experiment_saved_models
+    )
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from pettingzoo.utils.conversions import parallel_wrapper_fn
 from pettingzoo.mpe._mpe_utils.simple_env import SimpleEnv, make_env
 import random
 
-landmark_ind = [i for i in range(15)]
+landmark_ind = [i for i in range(12)]
 
 
 class Scenario(BaseScenario):
@@ -62,8 +62,12 @@ class Scenario(BaseScenario):
     def reset_world(self, world, np_random):
         # Assign properties to landmarks.
         # Select landmarks.
+        # print(self.landmark_ind)
         x = self.derange(self.landmark_ind)
-        world.landmarks = self.landmarks[x[: self.landmarkN]]
+        # print(x)
+        # print(len(self.landmarks))
+
+        world.landmarks = [self.landmarks[x[i]] for i in range(self.landmarkN)]
 
         for i, landmark in enumerate(world.landmarks):
             landmark.state.p_pos = np_random.uniform(-1, +1, world.dim_p)
