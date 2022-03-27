@@ -5,14 +5,12 @@ from pettingzoo.utils.conversions import parallel_wrapper_fn
 from pettingzoo.mpe._mpe_utils.simple_env import SimpleEnv, make_env
 import random
 
-landmark_ind = [i for i in range(12)]
-
 
 class Scenario(BaseScenario):
-    def make_world(self, landmark_ind=landmark_ind):
+    def make_world(self):
         world = World()
         # set any world properties first
-        world.dim_c = 10
+        world.dim_c = 15
         self.N = 2
         world.collaborative = True  # whether agents share rewards
         # add agents
@@ -26,10 +24,11 @@ class Scenario(BaseScenario):
         world.colors = [
             np.array([1, 0.5, 0.5]),
             np.array([0, 0.5, 0.5]),
-            np.array([0.33, 0.5, 0.5]),
-            np.array([0.66, 0.5, 0.5]),
+            # np.array([0.33, 0.5, 0.5]),
+            np.array([0.5, 0.5, 0.5]),
         ]
-        world.lradi = [0.10, 0.15, 0.20]
+        # world.lradi = [0.10, 0.15, 0.20]
+        world.lradi = [0.10, 0.20]
 
         self.combinations = len(world.colors) * len(world.lradi)
 
@@ -46,7 +45,7 @@ class Scenario(BaseScenario):
                 self.landmarks.append(landmark)
 
         self.landmarkN = 3
-        self.landmark_ind = landmark_ind
+        self.landmark_ind = landmark_ind = [i for i in range(6)]
 
         return world
 
@@ -74,12 +73,14 @@ class Scenario(BaseScenario):
             landmark.state.p_vel = np.zeros(world.dim_p)
 
         # assign goals to agents
-        x = self.derange([i for i in range(self.N)])
+        x = [1, 0]  # self.derange([i for i in range(self.N)])
         for i, agent in enumerate(world.agents):
             agent.goal_a = world.agents[x[i]]
             agent.goal_b = np_random.choice(world.landmarks)
             # special colors for goals
             agent.goal_a.color = agent.goal_b.color
+            agent.goal_a.size = agent.goal_b.size / 2
+
             # set random initial states
             agent.state.p_pos = np_random.uniform(-1, +1, world.dim_p)
             agent.state.p_vel = np.zeros(world.dim_p)
@@ -93,7 +94,7 @@ class Scenario(BaseScenario):
             distance = np.linalg.norm(diff)
             d_reward = distance if distance >= (agent.goal_b.size - agent.size) else 0
 
-        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.03
+        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.01
         agent_reward = -d_reward - comm_penalty
         return agent_reward
 
@@ -110,10 +111,11 @@ class Scenario(BaseScenario):
             pos = other.state.p_pos - agent.state.p_pos
             other_agents.append(pos)
             other_agents.append(np.array(other.color[0]))
+            other_agents.append(np.array(other.size))
             other_agents.append(other.state.c)
 
         # get other landmarks information
-        other_landmarks = [np.zeros(4) for i in range(5)]
+        other_landmarks = [np.zeros(4) for i in range(3)]
         for i, entity in enumerate(world.landmarks):
             pos = entity.state.p_pos - agent.state.p_pos
             other_landmarks[i][0:2] = pos
@@ -129,14 +131,12 @@ class Scenario(BaseScenario):
 
 
 class raw_env(SimpleEnv):
-    def __init__(
-        self, landmark_ind, local_ratio=0.5, max_cycles=25, continuous_actions=False
-    ):
+    def __init__(self, N=2, local_ratio=0.5, max_cycles=25, continuous_actions=False):
         assert (
             0.0 <= local_ratio <= 1.0
         ), "local_ratio is a proportion. Must be between 0 and 1."
         scenario = Scenario()
-        world = scenario.make_world(landmark_ind)
+        world = scenario.make_world()
         super().__init__(scenario, world, max_cycles, continuous_actions, local_ratio)
         self.metadata["name"] = "complex_reference"
 

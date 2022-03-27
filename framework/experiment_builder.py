@@ -71,22 +71,22 @@ class ExperimentBuilder(nn.Module):
                 obs, _, _, _ = env.step(act)
 
         env.close()
-        videos = []
-        for i in range(N):
-            start = i * (episode_len - 1)
-            end = (i + 1) * (episode_len - 1)
-            path = os.path.join(
-                self.experiment_videos,
-                f"{self.experiment_name}-{step}-step-{start}-to-step-{end}.mp4",
-            )
-            video = read_video(path)
-            v = video[0][None, :]
-            videos.append(v)
+        # videos = []
+        # for i in range(N):
+        #     start = i * (episode_len - 1)
+        #     end = (i + 1) * (episode_len - 1)
+        #     path = os.path.join(
+        #         self.experiment_videos,
+        #         f"{self.experiment_name}-{step}-step-{start}-to-step-{end}.mp4",
+        #     )
+        #     video = read_video(path)
+        #     v = video[0][None, :]
+        #     videos.append(v)
 
-        videos = torch.concat(videos)
-        self.logger.add_video(
-            f"{self.experiment_name}", videos, global_step=step, fps=10
-        )
+        # videos = torch.concat(videos)
+        # self.logger.add_video(
+        #     f"{self.experiment_name}", videos, global_step=step, fps=10
+        # )
 
     def score(self, step):
         N = 50
@@ -176,15 +176,17 @@ class ExperimentBuilder(nn.Module):
         rewards, dones = 0, False
 
         score = (
-            math.ceil((self.steps / 30) / self.args.episode_len) * self.args.episode_len
+            math.ceil((self.steps / 50) / self.args.episode_len) * self.args.episode_len
         )
         vid = (
-            math.ceil((self.steps / 5) / self.args.episode_len) * self.args.episode_len
+            math.ceil((self.steps / 50) / self.args.episode_len) * self.args.episode_len
         )
 
         for step in tqdm(range(0, self.steps + 1), position=1):
             if (step) % (score) == 0:
                 self.score(step)
+            if self.args.video and (step) % vid == 0:
+                self.save_video(step)
 
             new_episode = (step % self.args.episode_len) == 0
             actions = self.Policy.action(observation, new_episode=new_episode)
@@ -193,7 +195,5 @@ class ExperimentBuilder(nn.Module):
 
             self.Policy.store(step, observation, rewards, dones)
 
-            if self.args.video and (step + 1) % vid == 0:
-                self.save_video(step)
         if self.args.video:
             self.save_video(1e6, N=10)

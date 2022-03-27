@@ -23,7 +23,7 @@ import sys
 
 
 def get_environments(args):
-    landmark_ind = [i for i in range(12)]
+    landmark_ind = [i for i in range(6)]
     env = iterated
     env = env.parallel_env(landmark_ind=landmark_ind)
     env = ss.pad_observations_v0(env)
@@ -111,7 +111,7 @@ def main():
     ################################################
     if args.wandb:
         wandb.init(
-            project="iterated_language_evolution",
+            project="language_evolution",
             entity=None,
             sync_tensorboard=True,
             config=vars(args),

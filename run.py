@@ -10,7 +10,7 @@ from pettingzoo.mpe import (
     simple_reference_v2,
     simple_spread_v2,
 )
-from scenarios import complex_ref, full_ref
+from scenarios import complex_ref, full_ref, iterated
 
 # from torch.profiler import profile, record_function, ProfilerActivity
 import wandb
@@ -83,6 +83,8 @@ def main():
         env = simple_v2
     elif args.env == "communication":
         env = simple_reference_v2
+    elif args.env == "iterated":
+        env = iterated
     elif args.env == "complex_communication":
         env = complex_ref
     elif args.env == "full_communication_2":

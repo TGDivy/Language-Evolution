@@ -60,7 +60,7 @@ def get_args():
     args = parser.parse_args()
     # fmt: on
     num_cpus = psutil.cpu_count()
-    optimum_process_count_per_thread = 96
+    optimum_process_count_per_thread = 64
     n = re.findall(r"\d+", args.env)
     args.n_agents = int(n[0]) if n else 1
     args.num_envs = ((num_cpus - 2) * optimum_process_count_per_thread) // args.n_agents
