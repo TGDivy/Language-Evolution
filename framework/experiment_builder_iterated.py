@@ -175,7 +175,7 @@ class ExperimentBuilderIterated(nn.Module):
         observation = self.train_env.reset()
         rewards, dones = 0, False
 
-        nc = 3
+        nc = 50
 
         score = (
             math.ceil((self.steps / nc) / self.args.episode_len) * self.args.episode_len
