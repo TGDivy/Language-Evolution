@@ -7,34 +7,45 @@ import random
 
 
 class Scenario(BaseScenario):
-    def make_world(self, N):
+    def make_world(self):
         world = World()
         # set any world properties first
-        world.dim_c = 10
-        self.N = N
+        world.dim_c = 15
+        self.N = 2
         world.collaborative = True  # whether agents share rewards
         # add agents
         world.agents = [Agent() for i in range(self.N)]
         for i, agent in enumerate(world.agents):
             agent.name = f"agent_{i}"
             agent.collide = False
+
         # add landmarks
-        landmarkN = 4
-        world.landmarks = [Landmark() for i in range(landmarkN)]
-        self.lradius = 0.15
-        for i, landmark in enumerate(world.landmarks):
-            landmark.name = "landmark %d" % i
-            landmark.collide = False
-            landmark.movable = False
-            landmark.size = self.lradius
 
         world.colors = [
-            np.array([1, 0.5, 0.5]),
-            np.array([0, 0.5, 0.5]),
-            np.array([0.5, 0.5, 0.5]),
-            np.array([0.75, 0.5, 0.5]),
-            np.array([0.25, 0.5, 0.5]),
+            np.array([0.75, 0.25, 0.25]),
+            np.array([0.25, 0.75, 0.25]),
+            np.array([0.25, 0.25, 0.75]),
         ]
+        world.lradi = [0.10, 0.15, 0.20]
+        # world.lradi = [0.10, 0.20]
+
+        self.combinations = len(world.colors) * len(world.lradi)
+
+        self.landmarks = []
+
+        for i, color in enumerate(world.colors):
+            for j, lradius in enumerate(world.lradi):
+                landmark = Landmark()
+                landmark.name = "landmark %d" % ((i * 3) + j)
+                landmark.collide = False
+                landmark.movable = False
+                landmark.size = lradius
+                landmark.color = color
+                self.landmarks.append(landmark)
+
+        self.landmarkN = 3
+        self.landmark_ind = landmark_ind = [i for i in range(9)]
+
         return world
 
     def swap(self, xs, a, b):
@@ -47,22 +58,28 @@ class Scenario(BaseScenario):
         return xs
 
     def reset_world(self, world, np_random):
-        # Assign properties to landmarks
+        # Assign properties to landmarks.
+        # Select landmarks.
+        # print(self.landmark_ind)
+        x = self.derange(self.landmark_ind)
+        # print(x)
+        # print(len(self.landmarks))
+
+        world.landmarks = [self.landmarks[x[i]] for i in range(self.landmarkN)]
+
         for i, landmark in enumerate(world.landmarks):
-            landmark.color = world.colors[i]
-            # set random initial states
             landmark.state.p_pos = np_random.uniform(-1, +1, world.dim_p)
             landmark.state.p_vel = np.zeros(world.dim_p)
 
         # assign goals to agents
-        x = self.derange([i for i in range(self.N)])
-        # print(x, "done")
-
+        x = [1, 0]  # self.derange([i for i in range(self.N)])
         for i, agent in enumerate(world.agents):
             agent.goal_a = world.agents[x[i]]
             agent.goal_b = np_random.choice(world.landmarks)
             # special colors for goals
             agent.goal_a.color = agent.goal_b.color
+            agent.goal_a.size = agent.goal_b.size / 2
+
             # set random initial states
             agent.state.p_pos = np_random.uniform(-1, +1, world.dim_p)
             agent.state.p_vel = np.zeros(world.dim_p)
@@ -74,9 +91,11 @@ class Scenario(BaseScenario):
         else:
             diff = agent.goal_a.state.p_pos - agent.goal_b.state.p_pos
             distance = np.linalg.norm(diff)
-            d_reward = distance  # if distance >= self.lradius else 0
+            d_reward = (
+                distance  # if distance >= (agent.goal_b.size - agent.size) else 0
+            )
 
-        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.03
+        comm_penalty = (np.argmax(agent.state.c) > 0) * 0.01
         agent_reward = -d_reward - comm_penalty
         return agent_reward
 
@@ -91,72 +110,52 @@ class Scenario(BaseScenario):
             if other is agent:
                 continue
             pos = other.state.p_pos - agent.state.p_pos
-            other_agents.append(pos)
-            other_agents.append(np.array(other.color[0]))
+            # other_agents.append(pos)
+            # other_agents.append(np.array(other.color[0]))
+            # other_agents.append(np.array(other.size))
             other_agents.append(other.state.c)
 
         # get other landmarks information
-        other_landmarks = [np.zeros(3) for i in range(5)]
+        other_landmarks = [np.zeros(6) for i in range(3)]
         for i, entity in enumerate(world.landmarks):
             pos = entity.state.p_pos - agent.state.p_pos
             other_landmarks[i][0:2] = pos
-            other_landmarks[i][2] = entity.color[0]
+            other_landmarks[i][2:5] = entity.color
+
+            size = 0
+            if entity.size == 0.1:
+                size = -1
+            elif entity.size == 0.15:
+                size = 0
+            elif entity.size == 0.2:
+                size = 1
+            else:
+                raise
+            other_landmarks[i][5] = size
+
+        # print(other_landmarks)
 
         # get goal info
-        goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
+        goal = np.array([agent.goal_b.size] + list(agent.goal_b.color))
 
-        full = np.hstack([agent.state.p_vel] + [goal] + other_landmarks + other_agents)
+        full = np.hstack(
+            [agent.state.p_vel]
+            + [np.array(agent.size)]
+            + [goal]
+            + other_landmarks
+            + other_agents
+        )
 
         return full
 
-    # def observation(self, agent, world):
-    #     # goal color
-
-    #     # get other agent information
-    #     other_agents = [np.zeros(3) for i in range(5)]
-    #     comms = np.zeros(world.dim_c)
-    #     k = 0
-    #     for other in world.agents:
-    #         if other is agent:
-    #             continue
-    #         pos = other.state.p_pos - agent.state.p_pos
-    #         other_agents[k][0:2] = pos
-    #         other_agents[k][2] = other.color[0]
-    #         # other_agents.append(pos)
-    #         # other_agents.append(np.array(other.color[0]))
-    #         # other_agents.append(other.state.c)
-    #         comms += other.state.c
-    #         k += 1
-
-    #     # get other landmarks information
-    #     other_landmarks = [np.zeros(3) for i in range(5)]
-    #     for i, entity in enumerate(world.landmarks):
-    #         pos = entity.state.p_pos - agent.state.p_pos
-    #         other_landmarks[i][0:2] = pos
-    #         other_landmarks[i][2] = entity.color[0]
-
-    #     # get goal info
-    #     goal = np.array([agent.goal_a.color[0], agent.goal_b.color[0]])
-
-    #     full = np.hstack(
-    #         [agent.state.p_vel] + [goal] + other_landmarks + other_agents + [comms]
-    #     )
-
-    #     # print(goal)
-    #     # print(full)
-    #     # print(full.shape)
-    #     # print("-" * 20)
-
-    #     return full
-
 
 class raw_env(SimpleEnv):
-    def __init__(self, N, local_ratio=0.5, max_cycles=25, continuous_actions=False):
+    def __init__(self, N=2, local_ratio=0.5, max_cycles=25, continuous_actions=False):
         assert (
             0.0 <= local_ratio <= 1.0
         ), "local_ratio is a proportion. Must be between 0 and 1."
         scenario = Scenario()
-        world = scenario.make_world(N)
+        world = scenario.make_world()
         super().__init__(scenario, world, max_cycles, continuous_actions, local_ratio)
         self.metadata["name"] = "complex_reference"
 

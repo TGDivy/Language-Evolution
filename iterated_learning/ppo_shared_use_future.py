@@ -20,11 +20,13 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class language_learner_agents(base_policy):
-    def __init__(self, args, writer):
+    def __init__(self, args, writer, agent_names):
         self.args = args
 
         self.n_agents = args.n_agents
-        self.agents = [Agent(args, writer, i) for i in range(args.n_agents)]
+        self.agents = [
+            Agent(args, writer, agent_names[i]) for i in range(args.n_agents)
+        ]
 
         self.idx_starts = np.array([i * args.n_agents for i in range(0, args.num_envs)])
 
@@ -98,6 +100,10 @@ class language_learner_agents(base_policy):
 
     def store(self, total_steps, obs, rewards, dones):
         for i, agent in enumerate(self.agents):
+
+            if agent.agent_i != 0 and i == 0:
+                continue
+
             done = T.Tensor(dones)[self.idx_starts + i]
             reward = T.tensor(rewards)[self.idx_starts + i]
             agent.remember(
@@ -219,7 +225,7 @@ class NNN(nn.Module):
 
         act_fn = nn.ReLU
 
-        layer_filters = 128
+        layer_filters = 256
 
         self.gru_critic = nn.GRU(
             inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
@@ -230,6 +236,8 @@ class NNN(nn.Module):
 
         self.critic = nn.Sequential(
             layer_init(nn.Linear(hidden_size, layer_filters)),
+            act_fn(),
+            layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
@@ -344,8 +352,16 @@ class Agent:
         print(f"Save model agent_{self.agent_i} at {PATH}")
     
     def load(self, PATH):
-        self.ppo.load_state_dict(torch.load(PATH+f"/agent_{0}"), strict=False)
+        self.ppo.load_state_dict(torch.load(PATH+f"/agent_{self.agent_i}"), strict=False)
         print(f"Load model agent_{self.agent_i} at {PATH}")
+        
+    def load(self, PATH):
+        fname = PATH+f"/agent_{self.agent_i}"
+        if os.path.isfile(fname):
+            self.ppo.load_state_dict(torch.load(fname), strict=False)
+            print(f"Load model agent_{self.agent_i} at {fname}")
+        else:
+            print(f"Didn't Load agent_{self.agent_i}")
     # fmt:on
     def choose_action_evaluate(self, obs):
         with torch.no_grad():
@@ -410,7 +426,8 @@ class Agent:
             # if True: #Future Loss
             n = 3
             # futures = self.ppo.get_futures(b_obs, n)
-            floss = 0
+            # floss = 0
+            floss = mseloss(b_obs[1:], future[:-1])
             # for i in range(n):
             #     floss += mseloss(b_obs[i + 1 :], futures[i][: -i - 1])
 

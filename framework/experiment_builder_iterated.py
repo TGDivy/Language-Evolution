@@ -17,7 +17,7 @@ import seaborn as sns
 import math
 
 
-class ExperimentBuilder(nn.Module):
+class ExperimentBuilderIterated(nn.Module):
     def __init__(
         self,
         args,
@@ -32,8 +32,9 @@ class ExperimentBuilder(nn.Module):
         steps,
         logger: SummaryWriter,
         test_all_env=None,
+        agent_names=[],
     ):
-        super(ExperimentBuilder, self).__init__()
+        super(ExperimentBuilderIterated, self).__init__()
 
         self.Policy = Policy
         self.args = args
@@ -47,28 +48,26 @@ class ExperimentBuilder(nn.Module):
         self.experiment_logs = logfolder
         self.experiment_videos = videofolder
         self.experiment_saved_models = experiment_saved_models
+        self.agent_names = agent_names
+        self.pair_name = f"|{agent_names[0]}-{agent_names[1]}|"
 
         self.logger = logger
 
         self.best_score = -1000
 
-    def save_video(self, step, N=2):
-        from torchvision.io import read_video
-        import time
-
+    def save_video(self, step, tenv, N=2):
         episode_len = self.episode_len
         env = VecVideoRecorder(
-            self.test_env,
+            tenv,
             self.experiment_videos,
             record_video_trigger=lambda x: x == 0,
             video_length=episode_len - 1,
-            name_prefix=f"{self.experiment_name}-{step}",
+            name_prefix=f"{self.pair_name}-{step}",
         )
 
         for _ in range(N):
             obs = env.reset()
             for i in range(episode_len - 1):
-                # time.sleep(0.5)
                 act = self.Policy.action_evaluate(obs, new_episode=i == 0)
                 obs, _, _, _ = env.step(act)
 
@@ -79,8 +78,6 @@ class ExperimentBuilder(nn.Module):
         end_rewards = []
         mean_episode_reward = []
         agent_end_reward = [[] for i in range(self.args.n_agents)]
-
-        n_agents = self.args.n_agents
 
         comm = []
         for _ in range(N):
@@ -101,13 +98,19 @@ class ExperimentBuilder(nn.Module):
 
         self.analyze_comms(comm, step, prefix)
 
-        self.logger.add_scalar(f"{prefix}/End_reward", np.mean(end_rewards), step)
         self.logger.add_scalar(
-            f"{prefix}/Episode_return", np.mean(mean_episode_reward), step
+            f"{prefix}_{self.pair_name}/End_reward", np.mean(end_rewards), step
+        )
+        self.logger.add_scalar(
+            f"{prefix}_{self.pair_name}/Episode_return",
+            np.mean(mean_episode_reward),
+            step,
         )
 
         for i, ereward in enumerate(agent_end_reward):
-            self.logger.add_scalar(f"{prefix}/agent_{i}", np.mean(ereward), step)
+            self.logger.add_scalar(
+                f"{prefix}_{self.pair_name}/agent_{i}", np.mean(ereward), step
+            )
 
         if self.best_score < np.mean(end_rewards):
             self.Policy.save_agents(self.experiment_saved_models)
@@ -121,25 +124,31 @@ class ExperimentBuilder(nn.Module):
         total_unique_symbols_uttered = len(np.unique(comms))
         n_agents = self.args.n_agents
         self.logger.add_scalar(
-            f"{prefix}/vocab_size", total_unique_symbols_uttered, step
+            f"{prefix}_{self.pair_name}/vocab_size", total_unique_symbols_uttered, step
         )
 
         for i in range(n_agents):
             tusu_agent = len(np.unique(comms[:, :, i]))
-            self.logger.add_scalar(f"{prefix}/vocab_size_agent_{i}", tusu_agent, step)
+            self.logger.add_scalar(
+                f"{prefix}_{self.pair_name}/vocab_size_agent_{i}", tusu_agent, step
+            )
 
         average_symbols_uttered_ep = (
             np.sum(comms != 0) / np.size(comms) * self.episode_len
         )
 
         self.logger.add_scalar(
-            f"{prefix}/symbols_per_ep", average_symbols_uttered_ep, step
+            f"{prefix}_{self.pair_name}/symbols_per_ep",
+            average_symbols_uttered_ep,
+            step,
         )
 
         for i in range(n_agents):
             comms_a = comms[:, :, i]
             asue = np.sum(comms_a != 0) / np.size(comms_a) * self.episode_len
-            self.logger.add_scalar(f"{prefix}/symbols_per_ep_agent_{i}", asue, step)
+            self.logger.add_scalar(
+                f"{prefix}_{self.pair_name}/symbols_per_ep_agent_{i}", asue, step
+            )
 
         episodes = 10
         vocab = self.args.action_space // 5
@@ -159,18 +168,20 @@ class ExperimentBuilder(nn.Module):
         fig = plt.figure(figsize=(10, 10))
         a = plt.imshow(arrayShow)
         plt.legend(handles=patches, loc=5, borderaxespad=-5.0)
-        self.logger.add_figure("{prefix}/utterances", fig, step)
+        self.logger.add_figure(f"{prefix}_{self.pair_name}/utterances", fig, step)
 
     def run_experiment(self):
 
         observation = self.train_env.reset()
         rewards, dones = 0, False
 
+        nc = 3
+
         score = (
-            math.ceil((self.steps / 50) / self.args.episode_len) * self.args.episode_len
+            math.ceil((self.steps / nc) / self.args.episode_len) * self.args.episode_len
         )
         vid = (
-            math.ceil((self.steps / 50) / self.args.episode_len) * self.args.episode_len
+            math.ceil((self.steps / nc) / self.args.episode_len) * self.args.episode_len
         )
 
         for step in tqdm(range(0, self.steps + 1), position=1):
@@ -180,7 +191,7 @@ class ExperimentBuilder(nn.Module):
                     self.score(step, self.test_all_env, prefix="dev_all")
 
             if self.args.video and (step) % vid == 0:
-                self.save_video(step)
+                self.save_video(step, tenv=self.test_all_env)
 
             new_episode = (step % self.args.episode_len) == 0
             actions = self.Policy.action(observation, new_episode=new_episode)
@@ -190,4 +201,4 @@ class ExperimentBuilder(nn.Module):
             self.Policy.store(step, observation, rewards, dones)
 
         if self.args.video:
-            self.save_video(1e6, N=10)
+            self.save_video(1e6, tenv=self.test_all_env, N=10)

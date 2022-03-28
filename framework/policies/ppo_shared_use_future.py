@@ -407,6 +407,107 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 #         return (action, prob, probs.entropy(), value)
 
 
+# class NNN(nn.Module):
+#     def __init__(self, obs_shape, actors, action_space, hidden_size):
+#         super(NNN, self).__init__()
+
+#         self.hidden_size = hidden_size
+#         self.gru_layers = 1
+#         inp_hid_size = np.array(obs_shape).prod()
+
+#         act_fn = nn.ReLU
+
+#         layer_filters = 256
+
+#         self.gru_critic = nn.GRU(
+#             inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
+#         )
+#         self.gru_actor = nn.GRU(
+#             inp_hid_size, hidden_size, self.gru_layers, batch_first=False
+#         )
+
+#         self.critic = nn.Sequential(
+#             layer_init(nn.Linear(hidden_size, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, 1), std=1.0),
+#         )
+
+#         self.actor = nn.Sequential(
+#             layer_init(nn.Linear(hidden_size, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#         )
+
+#         self.action = nn.Sequential(
+#             layer_init(nn.Linear(layer_filters + inp_hid_size, layer_filters)),
+#             layer_init(nn.Linear(layer_filters, action_space), std=0.01),
+#         )
+
+#         self.future = nn.Sequential(
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, layer_filters)),
+#             act_fn(),
+#             layer_init(nn.Linear(layer_filters, inp_hid_size), std=0.01),
+#         )
+
+#     def init_hidden(self, batch_size=1):
+#         self.actor_hidden = T.zeros(self.gru_layers, batch_size, self.hidden_size).to(
+#             "cuda"
+#         )
+#         self.critic_hidden = T.zeros(self.gru_layers, batch_size, self.hidden_size).to(
+#             "cuda"
+#         )
+
+#     def get_futures(self, x, n):
+#         out = x
+#         futures = []
+#         for i in range(n):
+#             out, self.actor_hidden = self.gru_actor(out, self.actor_hidden)
+#             out = self.actor(out)
+#             out = self.future(out)
+#             futures.append(out)
+
+#         return futures
+
+#     def get_value(self, val_x):
+#         out, self.critic_hidden = self.gru_critic(val_x, self.critic_hidden)
+#         value = self.critic(out)
+#         return value
+
+#     def get_action(self, x):
+#         out, self.actor_hidden = self.gru_actor(x, self.actor_hidden)
+#         out = self.actor(out)
+#         future = self.future(out)
+#         out = torch.concat([out, future], dim=2)
+#         logits = self.action(out)
+#         probs = Categorical(logits=logits)
+#         action = probs.sample()
+
+#         return action, probs, future
+
+#     def get_action_and_value(self, x, val_x, action_=None):
+#         action, probs, future = self.get_action(x)
+#         value = self.get_value(val_x)
+
+#         prob = (
+#             probs.log_prob(action_) if action_ is not None else probs.log_prob(action)
+#         )
+
+#         return (action, prob, probs.entropy(), value, future)
+
+
 class NNN(nn.Module):
     def __init__(self, obs_shape, actors, action_space, hidden_size):
         super(NNN, self).__init__()
@@ -419,27 +520,16 @@ class NNN(nn.Module):
 
         layer_filters = 256
 
-        self.gru_critic = nn.GRU(
-            inp_hid_size * actors, hidden_size, self.gru_layers, batch_first=False
-        )
-        self.gru_actor = nn.GRU(
-            inp_hid_size, hidden_size, self.gru_layers, batch_first=False
-        )
+        self.gru = nn.GRU(inp_hid_size, hidden_size, self.gru_layers, batch_first=False)
 
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(hidden_size, layer_filters)),
-            act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
-            layer_init(nn.Linear(layer_filters, layer_filters)),
-            act_fn(),
-            layer_init(nn.Linear(layer_filters, 1), std=1.0),
+            layer_init(nn.Linear(layer_filters, 1)),
         )
 
-        self.actor = nn.Sequential(
+        self.common = nn.Sequential(
             layer_init(nn.Linear(hidden_size, layer_filters)),
-            act_fn(),
-            layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
@@ -481,25 +571,31 @@ class NNN(nn.Module):
 
         return futures
 
-    def get_value(self, val_x):
-        out, self.critic_hidden = self.gru_critic(val_x, self.critic_hidden)
-        value = self.critic(out)
-        return value
+    # def get_value(self, val_x):
+    #     out, self.critic_hidden = self.gru(val_x, self.critic_hidden)
+    #     value = self.critic(out)
+    #     return value
 
-    def get_action(self, x):
-        out, self.actor_hidden = self.gru_actor(x, self.actor_hidden)
-        out = self.actor(out)
+    def get_action(self, x, value=False):
+        out, self.actor_hidden = self.gru(x, self.actor_hidden)
+        out = self.common(out)
         future = self.future(out)
+
+        if value:
+            val = self.critic(out)
         out = torch.concat([out, future], dim=2)
         logits = self.action(out)
         probs = Categorical(logits=logits)
         action = probs.sample()
 
+        if value:
+            return action, probs, future, val
+
         return action, probs, future
 
     def get_action_and_value(self, x, val_x, action_=None):
-        action, probs, future = self.get_action(x)
-        value = self.get_value(val_x)
+        action, probs, future, value = self.get_action(x, value=True)
+        # value = self.get_value(val_x)
 
         prob = (
             probs.log_prob(action_) if action_ is not None else probs.log_prob(action)

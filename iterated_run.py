@@ -1,5 +1,5 @@
 from matplotlib.collections import PolyCollection
-from framework.experiment_builder import ExperimentBuilder
+from framework.experiment_builder_iterated import ExperimentBuilderIterated
 from framework.utils.arg_extractor import get_args
 from iterated_learning.ppo_shared_use_future import language_learner_agents
 import numpy as np
@@ -23,70 +23,93 @@ import sys
 
 
 def get_environments(args):
-    landmark_ind = [i for i in range(6)]
     env = iterated
-    env = env.parallel_env(landmark_ind=landmark_ind)
-    env = ss.pad_observations_v0(env)
-    env = ss.pettingzoo_env_to_vec_env_v1(env)
 
-    single_env = ss.concat_vec_envs_v1(env, 1)
+    landmark_ind = [i for i in range(6)]
+    landmark_all = [i for i in range(6)]
+    random.shuffle(landmark_ind)
+    landmark_ind = landmark_ind[0:4]
 
-    parrallel_env = ss.concat_vec_envs_v1(env, args.num_envs, psutil.cpu_count() - 1)
-    parrallel_env.seed(args.seed)
+    env_learn = env.parallel_env(landmark_ind=landmark_ind)
+    env_learn = ss.pad_observations_v0(env_learn)
+    env_learn = ss.pettingzoo_env_to_vec_env_v1(env_learn)
 
-    obs = parrallel_env.reset()
-    args.action_space = parrallel_env.action_space.n
-    args.obs_space = env.observation_space.shape
+    env_test_learn = ss.concat_vec_envs_v1(env_learn, 1)
+    env_learn = ss.concat_vec_envs_v1(env_learn, args.num_envs, psutil.cpu_count() - 1)
+    env_learn.seed(args.seed)
+
+    env_test_all = env.parallel_env(landmark_ind=landmark_all)
+    env_test_all = ss.pad_observations_v0(env_test_all)
+    env_test_all = ss.pettingzoo_env_to_vec_env_v1(env_test_all)
+    env_test_all = ss.concat_vec_envs_v1(env_test_all, 1)
+
+    obs = env_learn.reset()
+    args.action_space = env_learn.action_space.n
+    args.obs_space = env_learn.observation_space.shape
     args.n_agents = 2
+    args.landmark_ind = landmark_ind
+
+    print(landmark_ind)
 
     print(
-        f"Observation shape: {env.observation_space.shape}, Action space: {parrallel_env.action_space}, all_obs shape: {obs.shape}"
+        f"Observation shape: {env_learn.observation_space.shape}, Action space: {env_learn.action_space}, all_obs shape: {obs.shape}"
     )
 
-    return single_env, parrallel_env, args
+    return env_learn, env_test_learn, env_test_all, args
 
 
 def iterated_learning(
     args, logger, experiment_name, experiment_videos, experiment_saved_models
 ):
-    # setup environment ###########################################
-    single_env, parrallel_env, args = get_environments(args)
-
     args.device = "cuda"
 
-    ############### MODEL ########################################
-    Policy = language_learner_agents
+    for i, j in enumerate(range(1, 10)):
 
-    Policy = Policy(args, logger)
-    if args.load_weights_name:
-        PATH = os.path.abspath("experiments") + args.load_weights_name + "/saved_models"
+        agent_names = [i, j]
+
+        # setup environment ###########################################
+        env_learn, env_test_learn, env_test_all, args = get_environments(args)
+        logger.add_text(
+            "possible_types",
+            str(args.landmark_ind),
+        )
+
+        ############### MODEL ########################################
+        Policy = language_learner_agents
+
+        Policy = Policy(args, logger, agent_names)
+        PATH = experiment_saved_models
         Policy.load_agents(PATH)
-    ###############################################################
+        ###############################################################
 
-    exp = ExperimentBuilder(
-        args=args,
-        train_environment=parrallel_env,
-        test_environment=single_env,
-        Policy=Policy,
-        experiment_name=experiment_name,
-        logfolder=experiment_videos,
-        experiment_saved_models=experiment_saved_models,
-        videofolder=experiment_videos,
-        episode_len=args.episode_len,
-        steps=args.total_timesteps,
-        logger=logger,
-    )
-    logger.add_text(
-        "hyperparameters",
-        "|param|value|\n|-|-|\n%s"
-        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
-    )
+        exp = ExperimentBuilderIterated(
+            args=args,
+            train_environment=env_learn,
+            test_environment=env_test_learn,
+            test_all_env=env_test_all,
+            Policy=Policy,
+            experiment_name=experiment_name,
+            logfolder=experiment_videos,
+            experiment_saved_models=experiment_saved_models,
+            videofolder=experiment_videos,
+            episode_len=args.episode_len,
+            steps=args.total_timesteps,
+            logger=logger,
+            agent_names=agent_names,
+        )
+        logger.add_text(
+            "hyperparameters",
+            "|param|value|\n|-|-|\n%s"
+            % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        )
 
-    exp.run_experiment()
-    single_env.close()
-    parrallel_env.close()
+        exp.run_experiment()
+
+        env_learn.close()
+        env_test_learn.close()
+        env_test_all.close()
+
     logger.close()
-
     os._exit(0)
 
 
@@ -111,7 +134,7 @@ def main():
     ################################################
     if args.wandb:
         wandb.init(
-            project="language_evolution",
+            project="iterated_language_evolution",
             entity=None,
             sync_tensorboard=True,
             config=vars(args),

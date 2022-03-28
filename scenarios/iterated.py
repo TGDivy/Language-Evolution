@@ -7,7 +7,7 @@ import random
 
 
 class Scenario(BaseScenario):
-    def make_world(self):
+    def make_world(self, landmark_ind):
         world = World()
         # set any world properties first
         world.dim_c = 15
@@ -45,7 +45,7 @@ class Scenario(BaseScenario):
                 self.landmarks.append(landmark)
 
         self.landmarkN = 3
-        self.landmark_ind = landmark_ind = [i for i in range(6)]
+        self.landmark_ind = landmark_ind
 
         return world
 
@@ -131,12 +131,19 @@ class Scenario(BaseScenario):
 
 
 class raw_env(SimpleEnv):
-    def __init__(self, N=2, local_ratio=0.5, max_cycles=25, continuous_actions=False):
+    def __init__(
+        self,
+        landmark_ind,
+        N=2,
+        local_ratio=0.5,
+        max_cycles=25,
+        continuous_actions=False,
+    ):
         assert (
             0.0 <= local_ratio <= 1.0
         ), "local_ratio is a proportion. Must be between 0 and 1."
         scenario = Scenario()
-        world = scenario.make_world()
+        world = scenario.make_world(landmark_ind)
         super().__init__(scenario, world, max_cycles, continuous_actions, local_ratio)
         self.metadata["name"] = "complex_reference"
 
