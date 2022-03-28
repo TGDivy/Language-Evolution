@@ -63,7 +63,7 @@ def iterated_learning(
 ):
     args.device = "cuda"
 
-    for i, j in enumerate(range(1, 10)):
+    for i, j in enumerate(range(2, 10)):
 
         agent_names = [i, j]
 
