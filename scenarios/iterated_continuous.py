@@ -10,7 +10,7 @@ class Scenario(BaseScenario):
     def make_world(self, landmark_ind):
         world = World()
         # set any world properties first
-        world.dim_c = 2
+        world.dim_c = 15
         self.N = 2
         world.collaborative = True  # whether agents share rewards
         # add agents

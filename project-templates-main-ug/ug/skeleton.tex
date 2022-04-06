@@ -1,0 +1,201 @@
+% UG project example file, February 2022
+% Do not change the first two lines of code, except you may delete "logo," if causing problems.
+% Understand any problems and seek approval before assuming it's ok to remove ugcheck.
+\documentclass[logo,bsc,singlespacing,parskip]{infthesis}
+\usepackage{ugcheck}
+
+% Include any packages you need below, but don't include any that change the page
+% layout or style of the dissertation. By including the ugcheck package above,
+% you should catch most accidental changes of page layout though.
+
+\usepackage{microtype} % recommended, but you can remove if it causes problems
+
+\begin{document}
+\begin{preliminary}
+
+\title{This is the Project Title}
+
+\author{Your Name}
+
+% CHOOSE YOUR DEGREE a):
+% please leave just one of the following un-commented
+\course{Artificial Intelligence}
+%\course{Artificial Intelligence and Computer Science}
+%\course{Artificial Intelligence and Mathematics}
+%\course{Artificial Intelligence and Software Engineering}
+%\course{Cognitive Science}
+%\course{Computer Science}
+%\course{Computer Science and Management Science}
+%\course{Computer Science and Mathematics}
+%\course{Computer Science and Physics}
+%\course{Software Engineering}
+%\course{Master of Informatics} % MInf students
+
+% CHOOSE YOUR DEGREE b):
+% please leave just one of the following un-commented
+%\project{MInf Project (Part 1) Report}  % 4th year MInf students
+%\project{MInf Project (Part 2) Report}  % 5th year MInf students
+\project{4th Year Project Report}        % all other UG4 students
+
+
+\date{\today}
+
+\abstract{
+This skeleton demonstrates how to use the \texttt{infthesis} style for
+undergraduate dissertations in the School of Informatics. It also emphasises the
+page limit, and that you must not deviate from the required style.
+The file \texttt{skeleton.tex} generates this document and should be used as a
+starting point for your thesis. Replace this abstract text with a concise
+summary of your report.
+}
+
+\maketitle
+
+\newenvironment{ethics}
+   {\begin{frontenv}{Research Ethics Approval}{\LARGE}}
+   {\end{frontenv}\newpage}
+
+\begin{ethics}
+\textbf{Instructions:} \emph{Agree with your supervisor which
+statement you need to include. Then delete the statement that you are not using,
+and the instructions in italics.\\
+\textbf{Either complete and include this statement:}}\\ % DELETE THESE INSTRUCTIONS
+%
+% IF ETHICS APPROVAL WAS REQUIRED:
+This project obtained approval from the Informatics Research Ethics committee.\\
+Ethics application number: ???\\
+Date when approval was obtained: YYYY-MM-DD\\
+%
+\emph{[If the project required human participants, edit as appropriate, otherwise delete:]}\\ % DELETE THIS LINE
+The participants' information sheet and a consent form are included in the appendix.\\
+%
+% IF ETHICS APPROVAL WAS NOT REQUIRED:
+\textbf{\emph{Or include this statement:}}\\ % DELETE THIS LINE
+This project was planned in accordance with the Informatics Research
+Ethics policy. It did not involve any aspects that required approval
+from the Informatics Research Ethics committee.
+
+\standarddeclaration
+\end{ethics}
+
+
+\begin{acknowledgements}
+Any acknowledgements go here.
+\end{acknowledgements}
+
+
+\tableofcontents
+\end{preliminary}
+
+
+\chapter{Introduction}
+
+The preliminary material of your report should contain:
+\begin{itemize}
+\item
+The title page.
+\item
+An abstract page.
+\item
+Declaration of ethics and own work.
+\item
+Optionally an acknowledgements page.
+\item
+The table of contents.
+\end{itemize}
+
+As in this example \texttt{skeleton.tex}, the above material should be
+included between:
+\begin{verbatim}
+\begin{preliminary}
+    ...
+\end{preliminary}
+\end{verbatim}
+This style file uses roman numeral page numbers for the preliminary material.
+
+The main content of the dissertation, starting with the first chapter,
+starts with page~1. \emph{\textbf{The main content must not go beyond page~40.}}
+
+The report then contains a bibliography and any appendices, which may go beyond
+page~40. The appendices are only for any supporting material that's important to
+go on record. However, you cannot assume markers of dissertations will read them.
+
+You may not change the dissertation format (e.g., reduce the font size, change
+the margins, or reduce the line spacing from the default single spacing). Be
+careful if you copy-paste packages into your document preamble from elsewhere.
+Some \LaTeX{} packages, such as \texttt{fullpage} or \texttt{savetrees}, change
+the margins of your document. Do not include them!
+
+Over-length or incorrectly-formatted dissertations will not be accepted and you
+would have to modify your dissertation and resubmit. You cannot assume we will
+check your submission before the final deadline and if it requires resubmission
+after the deadline to conform to the page and style requirements you will be
+subject to the usual late penalties based on your final submission time.
+
+\section{Using Sections}
+
+Divide your chapters into sub-parts as appropriate.
+
+\section{Citations}
+
+Citations (such as \cite{P1} or \cite{P2}) can be generated using
+\texttt{BibTeX}. For more advanced usage, we recommend using the \texttt{natbib}
+package or the newer \texttt{biblatex} system.
+
+These examples use a numerical citation style. You may use any consistent
+reference style that you prefer, including ``(Author, Year)'' citations.
+
+\chapter{Your next chapter}
+
+A dissertation usually contains several chapters.
+
+\chapter{Conclusions}
+
+\section{Final Reminder}
+
+The body of your dissertation, before the references and any appendices,
+\emph{must} finish by page~40. The introduction, after preliminary material,
+should have started on page~1.
+
+You may not change the dissertation format (e.g., reduce the font size, change
+the margins, or reduce the line spacing from the default single spacing). Be
+careful if you copy-paste packages into your document preamble from elsewhere.
+Some \LaTeX{} packages, such as \texttt{fullpage} or \texttt{savetrees}, change
+the margins of your document. Do not include them!
+
+Over-length or incorrectly-formatted dissertations will not be accepted and you
+would have to modify your dissertation and resubmit. You cannot assume we will
+check your submission before the final deadline and if it requires resubmission
+after the deadline to conform to the page and style requirements you will be
+subject to the usual late penalties based on your final submission time.
+
+\bibliographystyle{plain}
+\bibliography{mybibfile}
+
+
+% You may delete everything from \appendix up to \end{document} if you don't need it.
+\appendix
+
+\chapter{First appendix}
+
+\section{First section}
+
+Any appendices, including any required ethics information, should be included
+after the references.
+
+Markers do not have to consider appendices. Make sure that your contributions
+are made clear in the main body of the dissertation (within the page limit).
+
+\chapter{Participants' information sheet}
+
+If you had human participants, include key information that they were given in
+an appendix, and point to it from the ethics declaration.
+
+\chapter{Participants' consent form}
+
+If you had human participants, include information about how consent was
+gathered in an appendix, and point to it from the ethics declaration.
+This information is often a copy of a consent form.
+
+
+\end{document}

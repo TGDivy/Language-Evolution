@@ -1,7 +1,14 @@
+import imp
 from matplotlib.collections import PolyCollection
 from framework.experiment_builder_iterated import ExperimentBuilderIterated
+from framework.experiment_builder_iterated_continuous import (
+    ExperimentBuilderIteratedCont,
+)
 from framework.utils.arg_extractor import get_args
 from iterated_learning.ppo_shared_use_future import language_learner_agents
+from iterated_learning.ppo_shared_use_future_continuous import (
+    language_learner_agents_continuous,
+)
 import numpy as np
 import random
 import torch
@@ -30,7 +37,7 @@ def get_environments(args):
     random.shuffle(landmark_ind)
     landmark_ind = landmark_ind[0:4]
 
-    env_learn = env.parallel_env(landmark_ind=landmark_ind)
+    env_learn = env.parallel_env(landmark_ind=landmark_ind, continuous_actions=False)
     env_learn = ss.pad_observations_v0(env_learn)
     env_learn = ss.pettingzoo_env_to_vec_env_v1(env_learn)
 
@@ -38,12 +45,14 @@ def get_environments(args):
     env_learn = ss.concat_vec_envs_v1(env_learn, args.num_envs, psutil.cpu_count() - 1)
     env_learn.seed(args.seed)
 
-    env_test_all = env.parallel_env(landmark_ind=landmark_all)
+    env_test_all = env.parallel_env(landmark_ind=landmark_all, continuous_actions=False)
     env_test_all = ss.pad_observations_v0(env_test_all)
     env_test_all = ss.pettingzoo_env_to_vec_env_v1(env_test_all)
     env_test_all = ss.concat_vec_envs_v1(env_test_all, 1)
 
     obs = env_learn.reset()
+    # print(env_learn.action_space)
+    # print(env_learn.action_space.shape)
     args.action_space = env_learn.action_space.n
     args.obs_space = env_learn.observation_space.shape
     args.n_agents = 2
@@ -63,7 +72,9 @@ def iterated_learning(
 ):
     args.device = "cuda"
 
-    for i, j in enumerate(range(2, 10)):
+    for i, j in enumerate(range(1, 10)):
+        # if i == 0:
+        #     continue
 
         agent_names = [i, j]
 

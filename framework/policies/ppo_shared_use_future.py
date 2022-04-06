@@ -523,7 +523,7 @@ class NNN(nn.Module):
         self.gru = nn.GRU(inp_hid_size, hidden_size, self.gru_layers, batch_first=False)
 
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(layer_filters, layer_filters)),
+            layer_init(nn.Linear(10, layer_filters)),
             act_fn(),
             layer_init(nn.Linear(layer_filters, 1)),
         )
@@ -535,17 +535,17 @@ class NNN(nn.Module):
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
-            layer_init(nn.Linear(layer_filters, layer_filters)),
+            layer_init(nn.Linear(layer_filters, 10)),
             act_fn(),
         )
 
         self.action = nn.Sequential(
-            layer_init(nn.Linear(layer_filters + inp_hid_size, layer_filters)),
+            layer_init(nn.Linear(10 + inp_hid_size, layer_filters)),
             layer_init(nn.Linear(layer_filters, action_space), std=0.01),
         )
 
         self.future = nn.Sequential(
-            layer_init(nn.Linear(layer_filters, layer_filters)),
+            layer_init(nn.Linear(10, layer_filters)),
             act_fn(),
             layer_init(nn.Linear(layer_filters, layer_filters)),
             act_fn(),
@@ -559,6 +559,11 @@ class NNN(nn.Module):
         self.critic_hidden = T.zeros(self.gru_layers, batch_size, self.hidden_size).to(
             "cuda"
         )
+
+    def get_hidden(self, x):
+        out, self.actor_hidden = self.gru(x, self.actor_hidden)
+        out = self.common(out)
+        return out
 
     def get_futures(self, x, n):
         out = x

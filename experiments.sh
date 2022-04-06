@@ -34,29 +34,29 @@
 # python run.py \
 #     --model "ppo_shared_use_future" \
 #     --env "full_communication_2" \
-#     --experiment_name "big_net_" \
-#     --total-episodes 500000 \
+#     --experiment_name "big_net_bigger_bottleneck" \
+#     --total-episodes 1000000 \
 #     --learning-rate 0.0007 \
 #     --batch_size 512 \
 #     --update-epochs 10 \
 #     --max-grad-norm 10 \
 #     --episode_len 25 \
 #     --hidden_size 128 \
-#     --wandb True \
+#     --wandb False \
 #     --video True \
     # --load_weights_name "/ppo_shared_use_future-full_communication_4-big_net_cont"
 
 python iterated_run.py \
     --model "language_learner_agent" \
     --env "iterated" \
-    --experiment_name "attempt1" \
-    --total-episodes 2000000 \
+    --experiment_name "FINAL_ITERATED" \
+    --total-episodes 2500000 \
     --learning-rate 0.0007 \
     --batch_size 512 \
     --update-epochs 10 \
     --max-grad-norm 10 \
     --episode_len 25 \
-    --hidden_size 128 \
+    --hidden_size 256 \
     --wandb True \
     --video True \
     # --load_weights_name "/language_learner_agent-iterated-iterated_2"

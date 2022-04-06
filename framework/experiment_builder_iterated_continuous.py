@@ -17,7 +17,7 @@ import seaborn as sns
 import math
 
 
-class ExperimentBuilderIterated(nn.Module):
+class ExperimentBuilderIteratedCont(nn.Module):
     def __init__(
         self,
         args,
@@ -34,7 +34,7 @@ class ExperimentBuilderIterated(nn.Module):
         test_all_env=None,
         agent_names=[],
     ):
-        super(ExperimentBuilderIterated, self).__init__()
+        super(ExperimentBuilderIteratedCont, self).__init__()
 
         self.Policy = Policy
         self.args = args
@@ -69,6 +69,7 @@ class ExperimentBuilderIterated(nn.Module):
             obs = env.reset()
             for i in range(episode_len - 1):
                 act = self.Policy.action_evaluate(obs, new_episode=i == 0)
+                act = np.clip(act, 0, 1)
                 obs, _, _, _ = env.step(act)
 
         env.close()
@@ -87,7 +88,11 @@ class ExperimentBuilderIterated(nn.Module):
             for i in range(self.episode_len):
                 act = self.Policy.action_evaluate(obs, new_episode=i == 0)
                 # for i, a in enumerate(act):
-                communication.append(act // 5)
+                # act[]
+                communication.append(np.argmax(act[:, 5:], axis=1))
+                # print("-" * 5, i)
+                # print(act)
+                act = np.clip(act, 0, 1)
                 obs, reward, _, _ = env.step(act)
                 rewards.append(np.mean(reward))
             comm.append(communication)
@@ -95,7 +100,7 @@ class ExperimentBuilderIterated(nn.Module):
             end_rewards.append(reward)
             for i, r in enumerate(reward):
                 agent_end_reward[i].append(r)
-
+        # print(communication)
         self.analyze_comms(comm, step, prefix)
 
         self.logger.add_scalar(
@@ -120,6 +125,8 @@ class ExperimentBuilderIterated(nn.Module):
 
     def analyze_comms(self, comms, step, prefix="dev"):
         comms = np.array(comms, dtype=int)  # 50, 25, 3
+        print("*" * 50)
+        print(comms.shape)
 
         total_unique_symbols_uttered = len(np.unique(comms))
         n_agents = self.args.n_agents
@@ -151,12 +158,13 @@ class ExperimentBuilderIterated(nn.Module):
             )
 
         episodes = 10
-        vocab = self.args.action_space // 5
+        vocab = self.args.action_space - 5
         array = comms[:episodes, :, :] + 1
         dummy = np.zeros((episodes, self.episode_len, n_agents + 1), dtype=np.int)
         dummy[:, :, :n_agents] = array
         dummy = np.hstack([dummy[i] for i in range(episodes)])
 
+        print(vocab, dummy.shape)
         pallete = [(0.7, 0.7, 0.7)] + sns.color_palette("crest", vocab)
         labels = "**ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         arrayShow = np.array([[pallete[i] for i in j] for j in dummy])
@@ -175,7 +183,7 @@ class ExperimentBuilderIterated(nn.Module):
         observation = self.train_env.reset()
         rewards, dones = 0, False
 
-        nc = 20
+        nc = 40
 
         score = (
             math.ceil((self.steps / nc) / self.args.episode_len) * self.args.episode_len
@@ -195,6 +203,7 @@ class ExperimentBuilderIterated(nn.Module):
 
             new_episode = (step % self.args.episode_len) == 0
             actions = self.Policy.action(observation, new_episode=new_episode)
+            actions = np.clip(actions, 0, 1)
 
             observation, rewards, dones, infos = self.train_env.step(actions)
 

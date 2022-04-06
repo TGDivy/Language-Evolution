@@ -7,7 +7,7 @@ import os
 import torch
 from torch.nn import Softmax
 from torch.distributions.categorical import Categorical
-from torch.distributions import MultivariateNormal
+from torch.distributions import MultivariateNormal, ContinuousBernoulli, Normal
 from tqdm import tqdm
 from torch.nn import MSELoss
 from torch.nn import HuberLoss
@@ -19,7 +19,7 @@ from framework.utils.base import base_policy
 from torch.utils.tensorboard import SummaryWriter
 
 
-class language_learner_agents(base_policy):
+class language_learner_agents_continuous(base_policy):
     def __init__(self, args, writer, agent_names):
         self.args = args
 
@@ -83,7 +83,7 @@ class language_learner_agents(base_policy):
                 )
                 actions.append(action.numpy())
 
-            actions = np.vstack(actions).T.flatten()
+            actions = np.vstack(actions)
             return actions
 
     def action_evaluate(self, observations, new_episode):
@@ -95,8 +95,10 @@ class language_learner_agents(base_policy):
             if new_episode:
                 agent.ppo.init_hidden(agent_obs.shape[0])
             action = agent.choose_action_evaluate(agent_obs)
-            actions.append(action[0][0].item())
-        return np.array(actions)
+            actions.append(action.numpy())
+        actions = np.vstack(actions).squeeze()
+        # print(actions)
+        return actions
 
     def store(self, total_steps, obs, rewards, dones):
         for i, agent in enumerate(self.agents):
@@ -134,6 +136,7 @@ class PPOTrainer:
         self.gae = True
         self.gamma = gamma
         self.gae_lambda = gae_lambda
+        self.action_space = args.action_space
         self.clear_memory()
 
     def create_training_data(self):
@@ -199,8 +202,8 @@ class PPOTrainer:
 
         self.obs = T.zeros(space + self.obs_space)
         self.valobs = T.zeros(space + (self.obs_space[0]*self.args.n_agents,))
-        self.logprobs = T.zeros(space)
-        self.actions = T.zeros(space)
+        self.logprobs = T.zeros(space+(self.action_space,))
+        self.actions = T.zeros(space+ (self.action_space,))
         self.values = T.zeros(space)
         self.rewards = T.zeros(space)
         self.dones = T.zeros(space)
@@ -220,7 +223,7 @@ class NNN(nn.Module):
         super(NNN, self).__init__()
 
         self.hidden_size = hidden_size
-        self.gru_layers = 2
+        self.gru_layers = 1
         inp_hid_size = np.array(obs_shape).prod()
 
         act_fn = nn.ReLU
@@ -258,9 +261,14 @@ class NNN(nn.Module):
         )
 
         self.action = nn.Sequential(
-            layer_init(nn.Linear(layer_filters + inp_hid_size, layer_filters)),
-            layer_init(nn.Linear(layer_filters, action_space), std=0.01),
+            nn.Linear(layer_filters + inp_hid_size, layer_filters),
+            act_fn(),
+            nn.Linear(layer_filters, action_space),
+            nn.Sigmoid()
+            # layer_init(nn.Linear(layer_filters, action_space), std=0.01),
         )
+
+        self.action_logstd = nn.Parameter(torch.zeros(1, action_space) - 2)
 
         self.future = nn.Sequential(
             layer_init(nn.Linear(layer_filters, layer_filters)),
@@ -300,7 +308,13 @@ class NNN(nn.Module):
         future = self.future(out)
         out = torch.concat([out, future], dim=2)
         logits = self.action(out)
-        probs = Categorical(logits=logits)
+        # std = torch.exp(self.action_logstd.expand_as(logits))
+        std = torch.zeros_like(logits) + 0.1
+        # F.gumbel_softmax(logits, tau=1, hard=False)
+        # probs = MultivariateNormal(logits, T.eye(logits.shape[-1]).cuda() / 10)
+        probs = Normal(logits, std)
+        # ContinuousBernoulli
+        # probs = Categorical(logits=logits)
         action = probs.sample()
 
         return action, probs, future
@@ -312,8 +326,7 @@ class NNN(nn.Module):
         prob = (
             probs.log_prob(action_) if action_ is not None else probs.log_prob(action)
         )
-
-        return (action, prob, probs.entropy(), value, future)
+        return (action, prob, probs.entropy().sum(2), value, future)
 
 
 class Agent:
@@ -349,11 +362,11 @@ class Agent:
 
     def save(self, PATH):
         torch.save(self.ppo.state_dict(), PATH+f"/agent_{self.agent_i}")
-        print(f"Save model agent_{self.agent_i} at {PATH}")
+        # print(f"Save model agent_{self.agent_i} at {PATH}")
     
-    def load(self, PATH):
-        self.ppo.load_state_dict(torch.load(PATH+f"/agent_{self.agent_i}"), strict=False)
-        print(f"Load model agent_{self.agent_i} at {PATH}")
+    # def load(self, PATH):
+    #     self.ppo.load_state_dict(torch.load(PATH+f"/agent_{self.agent_i}"), strict=False)
+    #     print(f"Load model agent_{self.agent_i} at {PATH}")
         
     def load(self, PATH):
         fname = PATH+f"/agent_{self.agent_i}"
@@ -416,11 +429,11 @@ class Agent:
             self.optimizer.zero_grad()
 
             (_, newlogprob, entropy, newvalue, future) = self.ppo.get_action_and_value(
-                b_obs, b_val_obs, b_actions.long()
+                b_obs, b_val_obs, b_actions
             )
             newvalue = newvalue.squeeze()
 
-            logratio = newlogprob - b_logprobs
+            logratio = (newlogprob - b_logprobs).mean(2)
             ratio = logratio.exp()
 
             # if True: #Future Loss
