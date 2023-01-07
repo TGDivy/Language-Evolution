@@ -1,4 +1,18 @@
 # Language Evolution - The Need to Communicate
+
+## Table of content
+
+- [Introduction](#introduction)
+- [Environment](#environment)
+- [Results](#results)
+- [Exploring the Emergence of Structure in Language](#exploring-the-emergence-of-structure-in-language)
+  - [Vocab and symbol emission through time](#vocab-and-symbol-emission-through-time)
+  - [Learning of 3 agents with symbols emitted through time](#learning-of-3-agents-with-symbols-emitted-through-time)
+  - [Contextual Embeddings](#contextual-embeddings)
+  - [Agents invent morse code! - Restraining Vocab Size](#agents-invent-morse-code---restraining-vocab-size)
+
+## Introduction
+
 <!-- The author is Ted Chiange -->
 > The only way to learn an unknown language is to interact with a native
 > speaker asking questions, holding a conversation that sort of thing
@@ -6,6 +20,8 @@
 > will have to talk with an alien. Recordings alone aren't sufficient.
 >
 > \- Ted Chiang, Story of Your Life
+
+
 
 Have you ever wondered how artificial agents could use language to solve tasks in their environment? In this exciting new study, we delve into the world of utilitarian language understanding, where language is just one of the many tools that an agent can use to accomplish its goals.
 
