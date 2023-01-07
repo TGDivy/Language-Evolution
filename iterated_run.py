@@ -1,10 +1,10 @@
 import imp
 from matplotlib.collections import PolyCollection
-from framework.experiment_builder_iterated import ExperimentBuilderIterated
-from framework.experiment_builder_iterated_continuous import (
+from Framework.experiment_builder_iterated import ExperimentBuilderIterated
+from Framework.experiment_builder_iterated_continuous import (
     ExperimentBuilderIteratedCont,
 )
-from framework.utils.arg_extractor import get_args
+from Framework.utils.arg_extractor import get_args
 from iterated_learning.ppo_shared_use_future import language_learner_agents
 from iterated_learning.ppo_shared_use_future_continuous import (
     language_learner_agents_continuous,

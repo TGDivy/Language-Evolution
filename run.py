@@ -1,7 +1,7 @@
 from matplotlib.collections import PolyCollection
-from framework.experiment_builder import ExperimentBuilder
-from framework.utils.arg_extractor import get_args
-from framework.policy import policies_dic
+from Framework.experiment_builder import ExperimentBuilder
+from Framework.utils.arg_extractor import get_args
+from Framework.policy import policies_dic
 import numpy as np
 import random
 import torch
