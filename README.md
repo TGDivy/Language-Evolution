@@ -21,8 +21,6 @@
 >
 > \- Ted Chiang, Story of Your Life
 
-
-
 Have you ever wondered how artificial agents could use language to solve tasks in their environment? In this exciting new study, we delve into the world of utilitarian language understanding, where language is just one of the many tools that an agent can use to accomplish its goals.
 
 For a complete and scientific understanding of my work, please refer to my thesis. [Link to thesis](Thesis.pdf)
@@ -35,7 +33,9 @@ So, how do we do it? We set up a series of environments based on OpenAI's physic
 
 In this environment, agents are interacting with landmarks and obstacles in a simulated 2D space in order to achieve goals. The agents can move in different directions and communicate with each other using a discrete set of symbols. Each agent has an internal goal vector that specifies the landmark it is trying to reach, but **it does not initially know which landmark it is supposed to go to or how to communicate this information to other agents.** The agents must **learn and create their own language** in order to successfully collaborate and solve tasks. The agent's observation state includes information about its own velocity and goal vector, as well as the locations and colors of all the landmarks and agents in the environment. The agents are rewarded for helping other agents reach their landmarks and penalized for communicating with symbols other than silence. The overall reward for all the agents is based on their distance from the landmarks. The main challenge for the agents is **learning how to communicate and navigate to the correct landmarks** without being given explicit instructions.
 
-![Environment](Demo/Environment.drawio.png)
+Environment Details             |
+:-----------------------------:|
+![Environment](Demo/Environment.drawio.png) |
 
 ## Results
 
@@ -74,7 +74,10 @@ In this experiment, we observe the relationship between the number of unique tok
 
 Here we can see that initially the communication between the agents is extremely noisy, like emitting random words. Overtime they learn to communicate more efficiently and effectively, creating their language!
 
-![3 Agent learning](Demo/Learning-of-3-agents.gif)
+Symbol Emission through time of 3 agents learning              |
+:-----------------------------:|
+Here we see that as the agents learn to communicate, they also become more efficient and precise!                         |
+![3 Agent learning](Demo/Learning-of-3-agents.gif)  |
 
 ### Contextual Embeddings
 
@@ -97,7 +100,6 @@ In this experiment, we introduce an artificial bottleneck on the maximum number 
 In the 3-agent scenario shown, we observe that the agents can form a compositional language, but only with the introduction of this artificial penalty. Based on the videos, the first symbol is used to communicate which agent is being referred to, and the second symbol indicates the desired landmark. The remaining symbols are used to reassure the direction based on the observing agent's position.
 
 Overall, it seems that the formation of compositional language requires an artificial penalty on the number of symbols that can be used.
-
 
 3 Agent - 2 symbols             |
 :-----------------------------:|
